@@ -1,5 +1,4 @@
-.terraform.tfstate.lock.info
-.terraformrc
+.terraform**
 *_override.tf
 *_override.tf.json
 *.tfstate

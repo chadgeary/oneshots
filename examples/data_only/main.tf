@@ -4,4 +4,5 @@ module "aws_data" {
 
 output "aws_data" {
     value = module.aws_data.this
+    sensitive = false
 }
