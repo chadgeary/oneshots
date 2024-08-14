@@ -1,4 +1,4 @@
-data "aws_ec2_instance_type_offerings" "this_arm64" {
+data "aws_ec2_instance_type_offerings" "this-arm64" {
   filter {
     name = "instance-type"
     values = [
@@ -9,7 +9,7 @@ data "aws_ec2_instance_type_offerings" "this_arm64" {
   }
 }
 
-data "aws_ec2_instance_type_offerings" "this_amd64" {
+data "aws_ec2_instance_type_offerings" "this-amd64" {
   filter {
     name = "instance-type"
     values = [

@@ -16,3 +16,11 @@ resource "aws_vpc_dhcp_options_association" "this" {
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
 }
+
+resource "aws_vpc_endpoint" "this" {
+  vpc_id       = aws_vpc.this.id
+  service_name = "com.amazonaws.${var.aws.region.name}.s3"
+  tags = {
+    "Name" = "${var.aws.default_tags.tags["Name"]}-s3"
+  }
+}

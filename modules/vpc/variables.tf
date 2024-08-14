@@ -1,4 +1,4 @@
-variable "aws_data" {
+variable "aws" {
   type = object({
     availability_zones = object({
       names = list(string)
@@ -7,6 +7,9 @@ variable "aws_data" {
       tags = object({
         Name = string
       })
+    })
+    region = object({
+      name = string
     })
   })
 }

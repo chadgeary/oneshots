@@ -7,7 +7,7 @@ variable "install" {
     })
   })
   default = {
-    name = "demo1"
+    name = "1shot-d1"
     vpc = {
       cidr  = "10.100.0.0/20"
       zones = 1
