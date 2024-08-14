@@ -13,7 +13,6 @@ variable "aws_data" {
 
 variable "install" {
   type = object({
-    name = string
     vpc = object({
       cidr  = string
       zones = number
