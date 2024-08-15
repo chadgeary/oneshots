@@ -13,12 +13,12 @@ resource "aws_cloudwatch_log_group" "this" {
 }
 
 resource "aws_iam_role" "this-files" {
-  assume_role_policy = data.aws_iam_policy_document.this-assume.json
+  assume_role_policy = data.aws_iam_policy_document.this-files-assume.json
   description        = "${var.aws.default_tags.tags["Name"]}-files"
   name               = "${var.aws.default_tags.tags["Name"]}-files"
   inline_policy {
     name   = "${var.aws.default_tags.tags["Name"]}-files"
-    policy = data.aws_iam_policy_document.this.json
+    policy = data.aws_iam_policy_document.this-files.json
   }
 }
 
@@ -31,7 +31,7 @@ resource "aws_lambda_function" "this" {
   handler          = "lambda_files.lambda_handler"
   runtime          = "python3.11"
   timeout          = 900
-  depends_on       = [aws_cloudwatch_log_group.this]
+  depends_on       = [aws_cloudwatch_log_group.this, aws_s3_bucket_policy.this]
 }
 
 # tflint-ignore: terraform_unused_declarations

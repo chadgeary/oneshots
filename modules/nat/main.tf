@@ -88,13 +88,11 @@ resource "aws_autoscaling_group" "this" {
   min_size           = 1
   name               = "${var.aws.default_tags.tags["Name"]}-nat-${each.value.availability_zone}"
   mixed_instances_policy {
-
     instances_distribution {
       on_demand_base_capacity                  = 0
       on_demand_percentage_above_base_capacity = 0
       spot_allocation_strategy                 = "price-capacity-optimized"
     }
-
     launch_template {
       launch_template_specification {
         launch_template_id = aws_launch_template.this[each.key].id
