@@ -8,7 +8,7 @@
 **/.terraform/*
 crash.*.log
 crash.log
-lambda*.zip
+**.zip
 override.tf
 override.tf.json
 terraform.rc

@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "this" {
-  bucket        = "${var.aws.default_tags.tags["Name"]}-files"
+  bucket        = "${var.aws.default_tags.tags["Name"]}-k3s"
   force_destroy = true
 }
 

@@ -17,4 +17,5 @@ module "nat" {
 module "k3s" {
   source = "../../modules/k3s"
   aws    = module.aws.this
+  vpc    = module.vpc.this
 }

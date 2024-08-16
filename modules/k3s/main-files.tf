@@ -1,10 +1,23 @@
-data "archive_file" "this" {
+data "archive_file" "this-kube-proxy" {
+  type        = "zip"
+  source_dir  = "${path.module}/files/kube-proxy"
+  output_path = "${path.module}/kube-proxy.zip"
+}
+
+resource "aws_s3_object" "this-kube-proxy" {
+  bucket = aws_s3_bucket.this.id
+  key    = "files/common/kube-proxy.zip"
+  source = data.archive_file.this-kube-proxy.output_path
+  etag   = data.archive_file.this-kube-proxy.output_md5
+}
+
+data "archive_file" "this-files" {
   type        = "zip"
   source_file = "${path.module}/lambda_files.py"
   output_path = "${path.module}/lambda_files.zip"
 }
 
-resource "aws_cloudwatch_log_group" "this" {
+resource "aws_cloudwatch_log_group" "this-files" {
   name              = "/aws/lambda/${var.aws.default_tags.tags["Name"]}-files"
   retention_in_days = 90
   tags = {
@@ -13,31 +26,31 @@ resource "aws_cloudwatch_log_group" "this" {
 }
 
 resource "aws_iam_role" "this-files" {
-  assume_role_policy = data.aws_iam_policy_document.this-assume.json
+  assume_role_policy = data.aws_iam_policy_document.this-files-assume.json
   description        = "${var.aws.default_tags.tags["Name"]}-files"
   name               = "${var.aws.default_tags.tags["Name"]}-files"
   inline_policy {
     name   = "${var.aws.default_tags.tags["Name"]}-files"
-    policy = data.aws_iam_policy_document.this.json
+    policy = data.aws_iam_policy_document.this-files.json
   }
 }
 
-resource "aws_lambda_function" "this" {
-  filename         = data.archive_file.this.output_path
-  source_code_hash = data.archive_file.this.output_base64sha256
+resource "aws_lambda_function" "this-files" {
+  filename         = data.archive_file.this-files.output_path
+  source_code_hash = data.archive_file.this-files.output_base64sha256
   function_name    = "${var.aws.default_tags.tags["Name"]}-files"
   role             = aws_iam_role.this-files.arn
   memory_size      = 256
   handler          = "lambda_files.lambda_handler"
   runtime          = "python3.11"
   timeout          = 900
-  depends_on       = [aws_cloudwatch_log_group.this]
+  depends_on       = [aws_cloudwatch_log_group.this-files, aws_s3_bucket_policy.this]
 }
 
 # tflint-ignore: terraform_unused_declarations
-data "aws_lambda_invocation" "this" {
+data "aws_lambda_invocation" "this-files" {
   for_each      = local.files
-  function_name = aws_lambda_function.this.function_name
+  function_name = aws_lambda_function.this-files.function_name
   input         = <<EOF
 {
  "bucket": "${aws_s3_bucket.this.bucket}",
