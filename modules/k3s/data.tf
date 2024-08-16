@@ -1,108 +1,18 @@
 data "aws_iam_policy_document" "this-controlplane" {
   version = "2012-10-17"
   statement {
-    sid = "ccm"
+    sid = "ecr"
     actions = [
-        "autoscaling:DescribeAutoScalingGroups",
-        "autoscaling:DescribeLaunchConfigurations",
-        "autoscaling:DescribeTags",
-        "ec2:AttachVolume",
-        "ec2:AuthorizeSecurityGroupIngress",
-        "ec2:CreateRoute",
-        "ec2:CreateSecurityGroup",
-        "ec2:CreateTags",
-        "ec2:CreateVolume",
-        "ec2:DeleteRoute",
-        "ec2:DeleteSecurityGroup",
-        "ec2:DeleteVolume",
-        "ec2:DescribeInstances",
-        "ec2:DescribeRegions",
-        "ec2:DescribeRouteTables",
-        "ec2:DescribeSecurityGroups",
-        "ec2:DescribeSubnets",
-        "ec2:DescribeVolumes",
-        "ec2:DescribeVpcs",
-        "ec2:DetachVolume",
-        "ec2:ModifyInstanceAttribute",
-        "ec2:ModifyVolume",
-        "ec2:RevokeSecurityGroupIngress",
-        "elasticloadbalancing:AddTags",
-        "elasticloadbalancing:AddTags",
-        "elasticloadbalancing:ApplySecurityGroupsToLoadBalancer",
-        "elasticloadbalancing:AttachLoadBalancerToSubnets",
-        "elasticloadbalancing:ConfigureHealthCheck",
-        "elasticloadbalancing:CreateListener",
-        "elasticloadbalancing:CreateLoadBalancer",
-        "elasticloadbalancing:CreateLoadBalancerListeners",
-        "elasticloadbalancing:CreateLoadBalancerPolicy",
-        "elasticloadbalancing:CreateTargetGroup",
-        "elasticloadbalancing:DeleteListener",
-        "elasticloadbalancing:DeleteLoadBalancer",
-        "elasticloadbalancing:DeleteLoadBalancerListeners",
-        "elasticloadbalancing:DeleteTargetGroup",
-        "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
-        "elasticloadbalancing:DescribeListeners",
-        "elasticloadbalancing:DescribeLoadBalancerAttributes",
-        "elasticloadbalancing:DescribeLoadBalancerPolicies",
-        "elasticloadbalancing:DescribeLoadBalancers",
-        "elasticloadbalancing:DescribeTargetGroups",
-        "elasticloadbalancing:DescribeTargetHealth",
-        "elasticloadbalancing:DetachLoadBalancerFromSubnets",
-        "elasticloadbalancing:ModifyListener",
-        "elasticloadbalancing:ModifyLoadBalancerAttributes",
-        "elasticloadbalancing:ModifyTargetGroup",
-        "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
-        "elasticloadbalancing:RegisterTargets",
-        "elasticloadbalancing:SetLoadBalancerPoliciesForBackendServer",
-        "elasticloadbalancing:SetLoadBalancerPoliciesOfListener",
-        "iam:CreateServiceLinkedRole",
-        "kms:DescribeKey",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:DescribeRepositories",
+      "ecr:GetAuthorizationToken",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:GetRepositoryPolicy",
+      "ecr:ListImages",
     ]
     effect    = "Allow"
     resources = ["*"]
-  }
-  statement {
-    sid = "ccmworker"
-    actions = [
-        "ec2:DescribeInstances",
-        "ec2:DescribeRegions",
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:BatchGetImage",
-        "ecr:DescribeRepositories",
-        "ecr:GetAuthorizationToken",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:GetRepositoryPolicy",
-        "ecr:ListImages",
-    ]
-    effect    = "Allow"
-    resources = ["*"]
-  }
-  statement {
-    sid = "vpccni1"
-    actions = [
-        "ec2:AssignPrivateIpAddresses",
-        "ec2:AttachNetworkInterface",
-        "ec2:CreateNetworkInterface",
-        "ec2:DeleteNetworkInterface",
-        "ec2:DescribeInstances",
-        "ec2:DescribeInstanceTypes",
-        "ec2:DescribeNetworkInterfaces",
-        "ec2:DescribeSubnets",
-        "ec2:DescribeTags",
-        "ec2:DetachNetworkInterface",
-        "ec2:ModifyNetworkInterfaceAttribute",
-        "ec2:UnassignPrivateIpAddresses",
-    ]
-    effect    = "Allow"
-    resources = ["*"]
-  }
-  statement {
-    sid = "vpccni2"
-    actions = [
-        "ec2:CreateTags",
-    ]
-    effect    = "Allow"
-    resources = ["arn:${var.aws.partition.id}:ec2:*:*:network-interface/*"]
   }
   statement {
     sid = "ssm"
@@ -174,7 +84,7 @@ data "aws_iam_policy_document" "this-files" {
       "logs:PutLogEvents"
     ]
     effect    = "Allow"
-    resources = ["${aws_cloudwatch_log_group.this.arn}:log-stream:*"]
+    resources = ["${aws_cloudwatch_log_group.this-files.arn}:log-stream:*"]
   }
   statement {
     sid = "s3"
@@ -199,6 +109,51 @@ data "aws_iam_policy_document" "this-files" {
 }
 
 data "aws_iam_policy_document" "this-files-assume" {
+  statement {
+    sid = "lambda"
+    actions = [
+      "sts:AssumeRole"
+    ]
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "this-record" {
+  version = "2012-10-17"
+  statement {
+    sid = "log"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    effect    = "Allow"
+    resources = ["${aws_cloudwatch_log_group.this-record.arn}:log-stream:*"]
+  }
+  statement {
+    sid = "ec2"
+    actions = [
+      "ec2:DescribeInstances",
+    ]
+    effect    = "Allow"
+    resources = ["*"]
+  }
+  statement {
+    sid = "r53"
+    actions = [
+      "route53:ChangeResourceRecordSets*",
+    ]
+    effect = "Allow"
+    resources = [
+      var.vpc.route53.arn
+    ]
+  }
+}
+
+data "aws_iam_policy_document" "this-record-assume" {
   statement {
     sid = "lambda"
     actions = [

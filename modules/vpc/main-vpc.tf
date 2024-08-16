@@ -26,7 +26,8 @@ resource "aws_vpc_endpoint" "this" {
 }
 
 resource "aws_route53_zone" "this" {
-  name = "${var.aws.default_tags.tags["Name"]}.internal"
+  name          = "${var.aws.default_tags.tags["Name"]}.internal"
+  force_destroy = true
   vpc {
     vpc_id = aws_vpc.this.id
   }

@@ -20,6 +20,13 @@ variable "aws" {
 
 variable "vpc" {
   type = object({
+    networks = object({
+      private = string
+    })
+    route53 = object({
+      arn = string
+      id  = string
+    })
     subnets = map(map(object({
       arn               = string
       availability_zone = string

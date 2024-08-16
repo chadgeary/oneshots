@@ -25,10 +25,10 @@ resource "aws_security_group" "this-controlplane" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    self = true
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    self      = true
   }
 }
 
@@ -42,18 +42,18 @@ resource "aws_launch_template" "this-controlplane" {
     http_endpoint               = "enabled"
     http_put_response_hop_limit = 1
     http_tokens                 = "required"
-    instance_metadata_tags      = "enabled"
+    instance_metadata_tags      = "disabled"
   }
-  user_data = base64encode(local.user_data)
+  user_data              = base64encode(local.user_data)
   vpc_security_group_ids = [aws_security_group.this-controlplane.id]
 }
 
 resource "aws_autoscaling_group" "this-controlplane" {
-  capacity_rebalance = false
-  desired_capacity   = 1
-  max_size           = 1
-  min_size           = 1
-  name               = "${var.aws.default_tags.tags["Name"]}-controlplane"
+  capacity_rebalance  = false
+  desired_capacity    = 3
+  max_size            = 3
+  min_size            = 3
+  name                = "${var.aws.default_tags.tags["Name"]}-controlplane"
   suspended_processes = ["AZRebalance"]
   vpc_zone_identifier = [for each in var.vpc.subnets.private : each.id]
   mixed_instances_policy {
@@ -78,6 +78,11 @@ resource "aws_autoscaling_group" "this-controlplane" {
   tag {
     key                 = "Name"
     value               = "${var.aws.default_tags.tags["Name"]}-controlplane"
+    propagate_at_launch = true
+  }
+  tag {
+    key                 = "kubernetes.io/cluster/${var.aws.default_tags.tags["Name"]}"
+    value               = "owned"
     propagate_at_launch = true
   }
 }
