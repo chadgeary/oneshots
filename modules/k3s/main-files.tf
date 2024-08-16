@@ -1,20 +1,24 @@
-data "archive_file" "this-kube-proxy" {
-  type        = "zip"
-  source_dir  = "${path.module}/files/kube-proxy"
-  output_path = "${path.module}/kube-proxy.zip"
-}
-
-resource "aws_s3_object" "this-kube-proxy" {
-  bucket = aws_s3_bucket.this.id
-  key    = "files/common/kube-proxy.zip"
-  source = data.archive_file.this-kube-proxy.output_path
-  etag   = data.archive_file.this-kube-proxy.output_md5
-}
-
 data "archive_file" "this-files" {
   type        = "zip"
   source_file = "${path.module}/lambda_files.py"
   output_path = "${path.module}/lambda_files.zip"
+}
+
+resource "aws_s3_bucket" "this" {
+  bucket        = "${var.aws.default_tags.tags["Name"]}-k3s"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_versioning" "this" {
+  bucket = aws_s3_bucket.this.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_policy" "this" {
+  bucket = aws_s3_bucket.this.id
+  policy = data.aws_iam_policy_document.this-s3.json
 }
 
 resource "aws_cloudwatch_log_group" "this-files" {

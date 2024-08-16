@@ -64,9 +64,6 @@ resource "aws_launch_template" "this" {
   for_each = var.vpc.subnets.public
   image_id = local.image_id
   name     = "${var.aws.default_tags.tags["Name"]}-nat-${each.value.availability_zone}"
-  network_interfaces {
-    network_interface_id = aws_network_interface.this[each.key].id
-  }
   iam_instance_profile {
     name = aws_iam_instance_profile.this.name
   }
@@ -75,6 +72,9 @@ resource "aws_launch_template" "this" {
     http_put_response_hop_limit = 1
     http_tokens                 = "required"
     instance_metadata_tags      = "enabled"
+  }
+  network_interfaces {
+    network_interface_id = aws_network_interface.this[each.key].id
   }
   user_data = base64encode(local.user_data)
 }

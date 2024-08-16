@@ -32,6 +32,18 @@ resource "aws_security_group" "this-controlplane" {
   }
 }
 
+resource "aws_ec2_subnet_cidr_reservation" "this-controlplane" {
+  cidr_block       = "${cidrhost(lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["cidr_block"], 10)}/32"
+  subnet_id        = lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["id"]
+  reservation_type = "explicit"
+}
+
+resource "aws_network_interface" "this-controlplane" {
+  subnet_id       = lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["id"]
+  private_ips     = [cidrhost(lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["cidr_block"], 10)]
+  security_groups = [aws_security_group.this-controlplane.id]
+}
+
 resource "aws_launch_template" "this-controlplane" {
   image_id = local.image_id
   name     = "${var.aws.default_tags.tags["Name"]}-controlplane"
@@ -44,18 +56,21 @@ resource "aws_launch_template" "this-controlplane" {
     http_tokens                 = "required"
     instance_metadata_tags      = "disabled"
   }
-  user_data              = base64encode(local.user_data)
-  vpc_security_group_ids = [aws_security_group.this-controlplane.id]
+  network_interfaces {
+    network_interface_id = aws_network_interface.this-controlplane.id
+  }
+  user_data = base64encode(templatefile(
+    "${path.module}/user_data.sh.tftpl", { NAME = var.aws.default_tags.tags["Name"], BUCKET = aws_s3_bucket.this.id }
+  ))
 }
 
 resource "aws_autoscaling_group" "this-controlplane" {
-  capacity_rebalance  = false
-  desired_capacity    = 3
-  max_size            = 3
-  min_size            = 3
-  name                = "${var.aws.default_tags.tags["Name"]}-controlplane"
-  suspended_processes = ["AZRebalance"]
-  vpc_zone_identifier = [for each in var.vpc.subnets.private : each.id]
+  availability_zones = [lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["availability_zone"]]
+  capacity_rebalance = false
+  desired_capacity   = 1
+  max_size           = 1
+  min_size           = 1
+  name               = "${var.aws.default_tags.tags["Name"]}-controlplane"
   mixed_instances_policy {
     instances_distribution {
       on_demand_base_capacity                  = 0

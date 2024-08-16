@@ -13,7 +13,6 @@ output "this" {
       private = aws_route_table.this-private
       public  = aws_route_table.this-public
     }
-    route53 = aws_route53_zone.this
-    vpc     = aws_vpc.this
+    vpc = aws_vpc.this
   }
 }

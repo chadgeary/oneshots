@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+
+EC2_METADATA() {
+	METADATA_TOKEN="$(curl -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' http://169.254.169.254/latest/api/token)"
+	INSTANCE_ARCH=$(if [ "$(uname -m)" == "x86_64" ]; then echo "amd64"; else echo "arm64"; fi)
+	INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/instance-id)
+	INSTANCE_INDEX=$(curl -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/ami-launch-index)
+	INSTANCE_IP=$(curl -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/local-ipv4)
+	INSTANCE_REGION=$(curl -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/placement/region)
+	INSTANCE_TYPE=$(curl -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/instance-type)
+	INSTANCE_ZONE=$(curl -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+}
+
+INSTANCE_NAME() {
+	if [ "$INSTANCE_REGION" == "us-east-1" ]; then
+		NODE_NAME="$(hostname).ec2.internal"
+	else
+		NODE_NAME="$(hostname).$INSTANCE_REGION.compute.internal"
+	fi
+}
+
+SET_ETC_HOSTS() {
+  cat >/etc/hosts <<EOF
+$INSTANCE_IP localhost
+$INSTANCE_IP $(hostname)
+$INSTANCE_IP $NODE_NAME
+$INSTANCE_IP controlplane.${NAME}.internal
+EOF
+}
+
+SET_INIT_ARG() {
+	if [ "$(aws s3 ls s3://"${BUCKET}"/controlplane/ | wc -l)" == "0" ]; then
+		INIT_ARG="--cluster-init"
+	else
+		until aws s3 ls s3://"${BUCKET}"/controlplane/SERVER_NODE_TOKEN | grep --quiet SERVER_NODE_TOKEN; do
+			sleep 1
+		done
+		SERVER_NODE_TOKEN=$(aws s3 cp s3://"${BUCKET}"/controlplane/SERVER_NODE_TOKEN -)
+		export SERVER_NODE_TOKEN
+		INIT_ARG="--server https://controlplane.${NAME}.internal:6443 -t $${SERVER_NODE_TOKEN}"
+	fi
+}
+
+ENSURE_DIRS() {
+	for DIR in \
+		/etc/rancher/k3s \
+		/var/lib/rancher/credentialprovider/bin \
+		/var/lib/rancher/k3s/agent/images; do
+		install -Dd -m=0750 $DIR
+	done
+}
+
+ECR_HELPER() {
+	cat >/var/lib/rancher/credentialprovider/config.yaml <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: ecr-credential-provider
+    matchImages:
+      - "*.dkr.ecr.*.amazonaws.com"
+      - "*.dkr.ecr.*.amazonaws.com.cn"
+      - "*.dkr.ecr-fips.*.amazonaws.com"
+      - "*.dkr.ecr.us-iso-east-1.c2s.ic.gov"
+      - "*.dkr.ecr.us-isob-east-1.sc2s.sgov.gov"
+    defaultCacheDuration: "12h"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+EOF
+}
+
+RESOLV_CONF() {
+	cat >/etc/rancher/k3s/resolv.conf <<EOF
+nameserver 169.254.169.253
+EOF
+}
+
+K3S_S3_COPY() {
+	aws s3 cp s3://"${BUCKET}"/files/"$INSTANCE_ARCH"/ecr-credential-provider /var/lib/rancher/credentialprovider/bin/ && chmod +x /var/lib/rancher/credentialprovider/bin/ecr-credential-provider
+	aws s3 cp s3://"${BUCKET}"/files/"$INSTANCE_ARCH"/images.tar.zst /var/lib/rancher/k3s/agent/images/k3s-airgap-images.tar.zst
+	aws s3 cp s3://"${BUCKET}"/files/"$INSTANCE_ARCH"/k3s /usr/local/bin/ && chmod +x /usr/local/bin/k3s
+	aws s3 cp s3://"${BUCKET}"/files/common/install.sh /usr/local/bin/ && chmod +x /usr/local/bin/install.sh
+}
+
+K3S_INSTALL() {
+	INSTALL_K3S_SKIP_DOWNLOAD=true /usr/local/bin/install.sh \
+		server "$INIT_ARG" \
+		--advertise-address "$INSTANCE_IP" \
+		--cluster-cidr=172.19.0.0/16 \
+		--cluster-dns=172.20.0.10 \
+		--disable-cloud-controller \
+		--disable=servicelb \
+		--disable=traefik \
+		--kube-apiserver-arg api-audiences="${NAME}" \
+		--kube-apiserver-arg service-account-issuer=https://s3."$INSTANCE_REGION".amazonaws.com/"${NAME}"-pub/oidc \
+		--kube-apiserver-arg service-account-jwks-uri=https://s3."$INSTANCE_REGION".amazonaws.com/"${NAME}"-pub/oidc/openid/v1/jwks \
+		--node-ip "$INSTANCE_IP" \
+		--node-label node.kubernetes.io/instance-type="$INSTANCE_TYPE" \
+		--node-label node.kubernetes.io/id="$INSTANCE_ID" \
+		--node-label topology.kubernetes.io/region="$INSTANCE_REGION" \
+		--node-label topology.kubernetes.io/zone="$INSTANCE_ZONE" \
+		--node-name "$NODE_NAME" \
+		--resolv-conf /etc/rancher/k3s/resolv.conf \
+		--service-cidr=172.20.0.0/16 \
+		--tls-san=controlplane."${NAME}".internal
+}
+
+K3S_POST_INSTALL() {
+	if [ "$INIT_ARG" == "--cluster-init" ]; then
+		until [ -f /etc/rancher/k3s/k3s.yaml ]; do
+			sleep 1
+		done
+		aws s3 cp /etc/rancher/k3s/k3s.yaml s3://"${BUCKET}"/controlplane/config
+
+		until [ -f /var/lib/rancher/k3s/server/token ]; do
+			sleep 1
+		done
+		aws s3 cp /var/lib/rancher/k3s/server/token s3://"${BUCKET}"/controlplane/SERVER_NODE_TOKEN
+
+		until [ -f /var/lib/rancher/k3s/server/agent-token ]; do
+			sleep 1
+		done
+		aws s3 cp /var/lib/rancher/k3s/server/agent-token s3://"${BUCKET}"/controlplane/AGENT_NODE_TOKEN
+	fi
+}
+
+EC2_METADATA
+INSTANCE_NAME
+SET_ETC_HOSTS
+SET_INIT_ARG
+ENSURE_DIRS
+ECR_HELPER
+RESOLV_CONF
+K3S_S3_COPY
+K3S_INSTALL
+K3S_POST_INSTALL

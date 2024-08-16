@@ -122,51 +122,6 @@ data "aws_iam_policy_document" "this-files-assume" {
   }
 }
 
-data "aws_iam_policy_document" "this-record" {
-  version = "2012-10-17"
-  statement {
-    sid = "log"
-    actions = [
-      "logs:CreateLogStream",
-      "logs:PutLogEvents"
-    ]
-    effect    = "Allow"
-    resources = ["${aws_cloudwatch_log_group.this-record.arn}:log-stream:*"]
-  }
-  statement {
-    sid = "ec2"
-    actions = [
-      "ec2:DescribeInstances",
-    ]
-    effect    = "Allow"
-    resources = ["*"]
-  }
-  statement {
-    sid = "r53"
-    actions = [
-      "route53:ChangeResourceRecordSets*",
-    ]
-    effect = "Allow"
-    resources = [
-      var.vpc.route53.arn
-    ]
-  }
-}
-
-data "aws_iam_policy_document" "this-record-assume" {
-  statement {
-    sid = "lambda"
-    actions = [
-      "sts:AssumeRole"
-    ]
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
-  }
-}
-
 data "aws_iam_policy_document" "this-s3" {
 
   statement {
