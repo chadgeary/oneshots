@@ -18,6 +18,17 @@ variable "aws" {
   })
 }
 
+variable "nat" {
+  type = object({
+    eip = map(object({
+      public_ip = string
+    }))
+    security_group = object({
+      id = string
+    })
+  })
+}
+
 variable "vpc" {
   type = object({
     networks = object({

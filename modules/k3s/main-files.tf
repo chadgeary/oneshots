@@ -5,7 +5,7 @@ data "archive_file" "this-files" {
 }
 
 resource "aws_s3_bucket" "this" {
-  bucket        = "${var.aws.default_tags.tags["Name"]}-k3s"
+  bucket        = "${var.aws.default_tags.tags["Name"]}-k3sfiles"
   force_destroy = true
 }
 

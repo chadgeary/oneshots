@@ -18,18 +18,20 @@ resource "aws_security_group" "this-controlplane" {
   name        = "${var.aws.default_tags.tags["Name"]}-controlplane"
   tags        = { Name = "${var.aws.default_tags.tags["Name"]}-controlplane" }
   vpc_id      = var.vpc.vpc.id
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port = 0
-    to_port   = 0
-    protocol  = "-1"
-    self      = true
-  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "this-controlplane" {
+  security_group_id = aws_security_group.this-controlplane.id
+
+  cidr_ipv4   = "0.0.0.0/0"
+  ip_protocol = "-1"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "this-controlplane" {
+  security_group_id = aws_security_group.this-controlplane.id
+
+  referenced_security_group_id = aws_security_group.this-controlplane.id
+  ip_protocol                  = "-1"
 }
 
 resource "aws_ec2_subnet_cidr_reservation" "this-controlplane" {
@@ -60,7 +62,7 @@ resource "aws_launch_template" "this-controlplane" {
     network_interface_id = aws_network_interface.this-controlplane.id
   }
   user_data = base64encode(templatefile(
-    "${path.module}/user_data.sh.tftpl", { NAME = var.aws.default_tags.tags["Name"], BUCKET = aws_s3_bucket.this.id }
+    "${path.module}/user_data.sh.tftpl", { NAME = var.aws.default_tags.tags["Name"], BUCKET = aws_s3_bucket.this.id, PUBLIC_IP = var.nat.eip[lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["availability_zone"]].public_ip }
   ))
 }
 

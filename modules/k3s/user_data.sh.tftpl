@@ -100,7 +100,8 @@ K3S_INSTALL() {
 		--node-name "$NODE_NAME" \
 		--resolv-conf /etc/rancher/k3s/resolv.conf \
 		--service-cidr=172.20.0.0/16 \
-		--tls-san=controlplane."${NAME}".internal
+		--tls-san=controlplane."${NAME}".internal \
+		--tls-san="${PUBLIC_IP}"
 }
 
 K3S_POST_INSTALL() {
