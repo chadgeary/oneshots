@@ -1,6 +1,6 @@
 locals {
-  image_id       = length(var.aws.nat_instance_types["arm64"]) > 0 ? var.aws.amis["arm64"].id : var.aws.amis["amd64"].id
-  instance_types = length(var.aws.nat_instance_types["arm64"]) > 0 ? var.aws.nat_instance_types["arm64"] : var.aws.nat_instance_types["amd64"]
+  image_id       = length(data.aws_ec2_instance_type_offerings.this-arm64.instance_types) > 0 ? var.aws.amis["arm64"].id : var.aws.amis["amd64"].id
+  instance_types = length(data.aws_ec2_instance_type_offerings.this-arm64.instance_types) > 0 ? sort(data.aws_ec2_instance_type_offerings.this-arm64.instance_types) : sort(data.aws_ec2_instance_type_offerings.this-amd64.instance_types)
   user_data      = <<EOF
 #!/usr/bin/env bash
 METADATA_TOKEN="$(curl -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' http://169.254.169.254/latest/api/token)"

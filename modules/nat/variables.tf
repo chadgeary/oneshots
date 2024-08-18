@@ -11,7 +11,6 @@ variable "aws" {
         Name = string
       })
     })
-    nat_instance_types = map(list(string))
   })
 }
 

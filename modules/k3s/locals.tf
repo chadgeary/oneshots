@@ -1,8 +1,6 @@
 locals {
-  versions = {
-    ECR_CRED = "1.29.0"
-    K3S      = "1.30.3"
-  }
+  image_id       = length(data.aws_ec2_instance_type_offerings.this-arm64.instance_types) > 0 ? var.aws.amis["arm64"].id : var.aws.amis["amd64"].id
+  instance_types = length(data.aws_ec2_instance_type_offerings.this-arm64.instance_types) > 0 ? sort(data.aws_ec2_instance_type_offerings.this-arm64.instance_types) : sort(data.aws_ec2_instance_type_offerings.this-amd64.instance_types)
   files = {
     K3S_BIN_ARM64 = {
       url    = "https://github.com/k3s-io/k3s/releases/download/v${local.versions["K3S"]}%2Bk3s1/k3s-arm64"
@@ -33,8 +31,8 @@ locals {
       prefix = "files/amd64/images.tar.zst"
     }
   }
-
-  image_id       = length(var.aws.k3s_instance_types["arm64"]) > 0 ? var.aws.amis["arm64"].id : var.aws.amis["amd64"].id
-  instance_types = length(var.aws.k3s_instance_types["arm64"]) > 0 ? var.aws.k3s_instance_types["arm64"] : var.aws.k3s_instance_types["amd64"]
-
+  versions = {
+    ECR_CRED = "1.29.0"
+    K3S      = "1.30.3"
+  }
 }
