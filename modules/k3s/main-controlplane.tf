@@ -1,5 +1,5 @@
 resource "aws_iam_role" "this-controlplane" {
-  assume_role_policy = data.aws_iam_policy_document.this-controlplane-assume.json
+  assume_role_policy = data.aws_iam_policy_document.this-assume["ec2"].json
   description        = "${var.aws.default_tags.tags["Name"]}-controlplane"
   name               = "${var.aws.default_tags.tags["Name"]}-controlplane"
   inline_policy {
@@ -119,7 +119,7 @@ resource "aws_autoscaling_group" "this-controlplane" {
 }
 
 resource "aws_iam_role" "this-controlplane-scaledown" {
-  assume_role_policy = data.aws_iam_policy_document.this-controlplane-scaledown-assume.json
+  assume_role_policy = data.aws_iam_policy_document.this-assume["autoscaling"].json
   description        = "${var.aws.default_tags.tags["Name"]}-controlplane-scaledown"
   name               = "${var.aws.default_tags.tags["Name"]}-controlplane-scaledown"
   inline_policy {

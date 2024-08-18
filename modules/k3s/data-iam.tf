@@ -1,3 +1,18 @@
+data "aws_iam_policy_document" "this-assume" {
+  for_each = toset(["autoscaling", "ec2", "lambda"])
+  statement {
+    sid = each.key
+    actions = [
+      "sts:AssumeRole"
+    ]
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["${each.key}.amazonaws.com"]
+    }
+  }
+}
+
 data "aws_iam_policy_document" "this-controlplane" {
   version = "2012-10-17"
   statement {
@@ -36,7 +51,6 @@ data "aws_iam_policy_document" "this-controlplane" {
       "ssmmessages:CreateDataChannel",
       "ssmmessages:OpenControlChannel",
       "ssmmessages:OpenDataChannel",
-
     ]
     effect    = "Allow"
     resources = ["*"]
@@ -76,20 +90,6 @@ data "aws_iam_policy_document" "this-controlplane" {
   }
 }
 
-data "aws_iam_policy_document" "this-controlplane-assume" {
-  statement {
-    sid = "ec2"
-    actions = [
-      "sts:AssumeRole"
-    ]
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
-    }
-  }
-}
-
 data "aws_iam_policy_document" "this-controlplane-scaledown" {
   version = "2012-10-17"
   statement {
@@ -99,20 +99,6 @@ data "aws_iam_policy_document" "this-controlplane-scaledown" {
     ]
     effect    = "Allow"
     resources = [aws_sns_topic.this-controlplane.arn]
-  }
-}
-
-data "aws_iam_policy_document" "this-controlplane-scaledown-assume" {
-  statement {
-    sid = "autoscaling"
-    actions = [
-      "sts:AssumeRole"
-    ]
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["autoscaling.amazonaws.com"]
-    }
   }
 }
 
@@ -149,22 +135,7 @@ data "aws_iam_policy_document" "this-files" {
   }
 }
 
-data "aws_iam_policy_document" "this-lambda-assume" {
-  statement {
-    sid = "lambda"
-    actions = [
-      "sts:AssumeRole"
-    ]
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
-  }
-}
-
 data "aws_iam_policy_document" "this-s3" {
-
   statement {
     sid = "full"
     actions = [
@@ -181,7 +152,6 @@ data "aws_iam_policy_document" "this-s3" {
       ]
     }
   }
-
   statement {
     sid    = "files"
     effect = "Allow"
@@ -208,7 +178,6 @@ data "aws_iam_policy_document" "this-s3" {
       ]
     }
   }
-
   statement {
     sid    = "ec2"
     effect = "Allow"

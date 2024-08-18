@@ -30,7 +30,7 @@ resource "aws_cloudwatch_log_group" "this-files" {
 }
 
 resource "aws_iam_role" "this-files" {
-  assume_role_policy = data.aws_iam_policy_document.this-lambda-assume.json
+  assume_role_policy = data.aws_iam_policy_document.this-assume["lambda"].json
   description        = "${var.aws.default_tags.tags["Name"]}-files"
   name               = "${var.aws.default_tags.tags["Name"]}-files"
   inline_policy {

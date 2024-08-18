@@ -22,7 +22,8 @@ SET_ENV() {
 BUCKET="${BUCKET}"
 NAME="${NAME}"
 PRIVATE_IP="${PRIVATE_IP}"
-export BUCKET NAME PRIVATE_IP
+PUBLIC_IP="${PUBLIC_IP}"
+export BUCKET NAME PRIVATE_IP PUBLIC_IP
 EOF
 }
 
@@ -176,7 +177,7 @@ K3S_POST_INSTALL() {
   until [ -f /etc/rancher/k3s/k3s.yaml ]; do
     sleep 1
   done
-  sed 's#https://.*:6443#https://'"$PUBLIC_IP"':6443#' /etc/rancher/k3s/k3s.yaml | aws s3 cp - s3://"${BUCKET}"/controlplane/config
+  sed 's#https://.*:6443#https://'"${PUBLIC_IP}"':6443#' /etc/rancher/k3s/k3s.yaml | aws s3 cp - s3://"${BUCKET}"/controlplane/config
 }
 
 EC2_METADATA

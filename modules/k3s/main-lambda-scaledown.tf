@@ -13,7 +13,7 @@ resource "aws_cloudwatch_log_group" "this-scaledown" {
 }
 
 resource "aws_iam_role" "this-scaledown" {
-  assume_role_policy = data.aws_iam_policy_document.this-lambda-assume.json
+  assume_role_policy = data.aws_iam_policy_document.this-assume["lambda"].json
   description        = "${var.aws.default_tags.tags["Name"]}-scaledown"
   name               = "${var.aws.default_tags.tags["Name"]}-scaledown"
   inline_policy {

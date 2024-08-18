@@ -6,6 +6,10 @@ until command -v iptables; do
   sleep 1
 done
 
+until iptables -nL -t nat | grep --quiet 'NAT Gateway'; do
+  sleep 1
+done
+
 if iptables -nL -t nat | grep --quiet '^ACCEPT.*all.*'; then
   echo "ACCEPT all SOURCE ${aws_network_interface.this-controlplane.private_ip} exists, skipping"
 else
