@@ -25,7 +25,9 @@ def lambda_handler(event, context):
     ssm = boto3.client("ssm")
 
     if "EC2InstanceId" in message:
-        commands_file = f"lambda_scaledown_{message['AutoScalingGroupName'].split('-')[-1]}.sh"
+        commands_file = (
+            f"lambda_scaledown_{message['AutoScalingGroupName'].split('-')[-1]}.sh"
+        )
         ssm.send_command(
             InstanceIds=[message["EC2InstanceId"]],
             DocumentName="AWS-RunShellScript",
