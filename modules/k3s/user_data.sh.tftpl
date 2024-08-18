@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+
+EC2_METADATA() {
+  METADATA_TOKEN="$(curl -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' http://169.254.169.254/latest/api/token)"
+  INSTANCE_ARCH=$(if [ "$(uname -m)" == "x86_64" ]; then echo "amd64"; else echo "arm64"; fi)
+  INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/instance-id)
+  INSTANCE_REGION=$(curl -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/placement/region)
+  INSTANCE_TYPE=$(curl -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/instance-type)
+  INSTANCE_ZONE=$(curl -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+}
+
+INSTANCE_NAME() {
+  if [ "$INSTANCE_REGION" == "us-east-1" ]; then
+    NODE_NAME="$(hostname).ec2.internal"
+  else
+    NODE_NAME="$(hostname).$INSTANCE_REGION.compute.internal"
+  fi
+}
+
+SET_ENV() {
+  cat >/opt/k3s.env <<EOF
+BUCKET="${BUCKET}"
+NAME="${NAME}"
+PRIVATE_IP="${PRIVATE_IP}"
+export BUCKET NAME PRIVATE_IP
+EOF
+}
+
+SET_ETC_HOSTS() {
+  cat >/etc/hosts <<EOF
+${PRIVATE_IP} localhost
+${PRIVATE_IP} $(hostname)
+${PRIVATE_IP} $NODE_NAME
+${PRIVATE_IP} controlplane.${NAME}.internal
+EOF
+}
+
+CHECK_FOR_SNAPSHOTS() {
+  if [ "$(aws s3 ls s3://"${BUCKET}"/controlplane/ | wc -l)" == "0" ]; then
+    echo "INFO found no snapshots"
+  else
+    K3S_TOKEN=$(aws s3 cp s3://"${BUCKET}"/controlplane/SERVER_NODE_TOKEN -)
+    export K3S_TOKEN
+    SNAPSHOT=$(aws s3api list-objects-v2 \
+      --bucket "${BUCKET}" \
+      --query "reverse(sort_by(Contents[?contains(Key, \`controlplane/snapshots/\`)], &LastModified))[:1].Key" \
+      --output=text)
+    echo "INFO found snapshots, using $SNAPSHOT"
+  fi
+}
+
+ENSURE_DIRS() {
+  for DIR in \
+    /etc/rancher/k3s \
+    /var/lib/rancher/credentialprovider/bin \
+    /var/lib/rancher/k3s/agent/images; do
+    install -Dd -m=0750 "$DIR"
+  done
+}
+
+ECR_HELPER() {
+  cat >/var/lib/rancher/credentialprovider/config.yaml <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: ecr-credential-provider
+    matchImages:
+      - "*.dkr.ecr.*.amazonaws.com"
+      - "*.dkr.ecr.*.amazonaws.com.cn"
+      - "*.dkr.ecr-fips.*.amazonaws.com"
+      - "*.dkr.ecr.us-iso-east-1.c2s.ic.gov"
+      - "*.dkr.ecr.us-isob-east-1.sc2s.sgov.gov"
+    defaultCacheDuration: "12h"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+EOF
+}
+
+RESOLV_CONF() {
+  cat >/etc/rancher/k3s/resolv.conf <<EOF
+nameserver 169.254.169.253
+EOF
+}
+
+K3S_S3_COPY() {
+  aws s3 cp s3://"${BUCKET}"/files/"$INSTANCE_ARCH"/ecr-credential-provider /var/lib/rancher/credentialprovider/bin/ && chmod +x /var/lib/rancher/credentialprovider/bin/ecr-credential-provider
+  aws s3 cp s3://"${BUCKET}"/files/"$INSTANCE_ARCH"/images.tar.zst /var/lib/rancher/k3s/agent/images/k3s-airgap-images.tar.zst
+  aws s3 cp s3://"${BUCKET}"/files/"$INSTANCE_ARCH"/k3s /usr/local/bin/ && chmod +x /usr/local/bin/k3s
+  aws s3 cp s3://"${BUCKET}"/files/common/install.sh /usr/local/bin/ && chmod +x /usr/local/bin/install.sh
+}
+
+K3S_RESTORE() {
+  if [ -z "$SNAPSHOT" ]; then
+    echo "INFO cluster init from scratch"
+  else
+    echo "INFO cluster init from restore"
+    INSTALL_K3S_SKIP_DOWNLOAD=true /usr/local/bin/install.sh \
+      server \
+      --advertise-address "${PRIVATE_IP}" \
+      --bind-address "${PRIVATE_IP}" \
+      --cluster-cidr=172.19.0.0/16 \
+      --cluster-dns=172.20.0.10 \
+      --cluster-reset \
+      --cluster-reset-restore-path="$SNAPSHOT" \
+      --etcd-s3 \
+      --etcd-s3-bucket="${BUCKET}" \
+      --etcd-s3-region="$INSTANCE_REGION" \
+      --flannel-iface="$LINK_ID" \
+      --kube-apiserver-arg api-audiences="${NAME}" \
+      --kube-apiserver-arg service-account-issuer=https://s3."$INSTANCE_REGION".amazonaws.com/"${NAME}"-pub/oidc \
+      --kube-apiserver-arg service-account-jwks-uri=https://s3."$INSTANCE_REGION".amazonaws.com/"${NAME}"-pub/oidc/openid/v1/jwks \
+      --node-ip "${PRIVATE_IP}" \
+      --node-label node.kubernetes.io/id="$INSTANCE_ID" \
+      --node-label node.kubernetes.io/instance-type="$INSTANCE_TYPE" \
+      --node-label topology.kubernetes.io/region="$INSTANCE_REGION" \
+      --node-label topology.kubernetes.io/zone="$INSTANCE_ZONE" \
+      --node-name "${PRIVATE_IP}" \
+      --resolv-conf /etc/rancher/k3s/resolv.conf \
+      --service-cidr=172.20.0.0/16 \
+      --tls-san="${PUBLIC_IP}" \
+      --tls-san=controlplane."${NAME}".internal \
+      --tls-san="${PRIVATE_IP}" \
+      -t "$K3S_TOKEN"
+
+      mv /var/lib/rancher/k3s/server/tls /var/lib/rancher/k3s/server/tls.old
+      mv /var/lib/rancher/k3s/server/cred/ipsec.psk /var/lib/rancher/k3s/server/cred/ipsec.psk.old
+  fi
+}
+
+K3S_INSTALL() {
+  INSTALL_K3S_SKIP_DOWNLOAD=true /usr/local/bin/install.sh \
+    server \
+    --advertise-address "${PRIVATE_IP}" \
+    --bind-address "${PRIVATE_IP}" \
+    --cluster-cidr=172.19.0.0/16 \
+    --cluster-dns=172.20.0.10 \
+    --cluster-init \
+    --disable-cloud-controller \
+    --disable=servicelb \
+    --disable=traefik \
+    --flannel-iface="$LINK_ID" \
+    --kube-apiserver-arg api-audiences="${NAME}" \
+    --kube-apiserver-arg service-account-issuer=https://s3."$INSTANCE_REGION".amazonaws.com/"${NAME}"-pub/oidc \
+    --kube-apiserver-arg service-account-jwks-uri=https://s3."$INSTANCE_REGION".amazonaws.com/"${NAME}"-pub/oidc/openid/v1/jwks \
+    --node-ip "${PRIVATE_IP}" \
+    --node-label node.kubernetes.io/instance-type="$INSTANCE_TYPE" \
+    --node-label node.kubernetes.io/id="$INSTANCE_ID" \
+    --node-label topology.kubernetes.io/region="$INSTANCE_REGION" \
+    --node-label topology.kubernetes.io/zone="$INSTANCE_ZONE" \
+    --node-name "${PRIVATE_IP}" \
+    --resolv-conf /etc/rancher/k3s/resolv.conf \
+    --service-cidr=172.20.0.0/16 \
+    --tls-san=controlplane."${NAME}".internal \
+    --tls-san="${PUBLIC_IP}" \
+    --tls-san="${PRIVATE_IP}"
+}
+
+K3S_POST_INSTALL() {
+  if [ -z "$SNAPSHOT" ]; then
+    echo "INFO cluster init post-install (s3 uploads)"
+    until [ -f /etc/rancher/k3s/k3s.yaml ]; do
+      sleep 1
+    done
+    sed 's#https://.*:6443#https://'"$PUBLIC_IP"':6443#' /etc/rancher/k3s/k3s.yaml | aws s3 cp - s3://"${BUCKET}"/controlplane/config
+
+    until [ -f /var/lib/rancher/k3s/server/token ]; do
+      sleep 1
+    done
+    aws s3 cp /var/lib/rancher/k3s/server/token s3://"${BUCKET}"/controlplane/SERVER_NODE_TOKEN
+
+    until [ -f /var/lib/rancher/k3s/server/agent-token ]; do
+      sleep 1
+    done
+    aws s3 cp /var/lib/rancher/k3s/server/agent-token s3://"${BUCKET}"/controlplane/AGENT_NODE_TOKEN
+  fi
+}
+
+EC2_METADATA
+INSTANCE_NAME
+SET_ENV
+ATTACH_ENI
+SET_ETC_HOSTS
+CHECK_FOR_SNAPSHOTS
+ENSURE_DIRS
+ECR_HELPER
+RESOLV_CONF
+K3S_S3_COPY
+K3S_RESTORE
+K3S_INSTALL
+K3S_POST_INSTALL

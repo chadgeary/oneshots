@@ -18,18 +18,21 @@ resource "aws_security_group" "this" {
   name        = "${var.aws.default_tags.tags["Name"]}-nat"
   tags        = { Name = "${var.aws.default_tags.tags["Name"]}-nat" }
   vpc_id      = var.vpc.vpc.id
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = [for each in var.vpc.subnets.private : each.cidr_block]
-  }
+}
+
+resource "aws_vpc_security_group_egress_rule" "this" {
+  security_group_id = aws_security_group.this.id
+
+  cidr_ipv4   = "0.0.0.0/0"
+  ip_protocol = "-1"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "this" {
+  for_each          = var.vpc.subnets.private
+  security_group_id = aws_security_group.this.id
+
+  cidr_ipv4   = each.value.cidr_block
+  ip_protocol = "-1"
 }
 
 resource "aws_ec2_subnet_cidr_reservation" "this" {
@@ -64,9 +67,6 @@ resource "aws_launch_template" "this" {
   for_each = var.vpc.subnets.public
   image_id = local.image_id
   name     = "${var.aws.default_tags.tags["Name"]}-nat-${each.value.availability_zone}"
-  network_interfaces {
-    network_interface_id = aws_network_interface.this[each.key].id
-  }
   iam_instance_profile {
     name = aws_iam_instance_profile.this.name
   }
@@ -75,6 +75,9 @@ resource "aws_launch_template" "this" {
     http_put_response_hop_limit = 1
     http_tokens                 = "required"
     instance_metadata_tags      = "enabled"
+  }
+  network_interfaces {
+    network_interface_id = aws_network_interface.this[each.key].id
   }
   user_data = base64encode(local.user_data)
 }
