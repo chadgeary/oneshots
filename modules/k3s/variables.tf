@@ -11,7 +11,6 @@ variable "aws" {
         Name = string
       })
     })
-    k3s_instance_types = map(list(string))
     partition = object({
       id = string
     })

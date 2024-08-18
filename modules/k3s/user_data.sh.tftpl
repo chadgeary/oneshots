@@ -39,7 +39,7 @@ CHECK_FOR_SNAPSHOTS() {
   if [ "$(aws s3 ls s3://"${BUCKET}"/controlplane/ | wc -l)" == "0" ]; then
     echo "INFO found no snapshots"
   else
-    K3S_TOKEN=$(aws s3 cp s3://"${BUCKET}"/controlplane/SERVER_NODE_TOKEN -)
+    K3S_TOKEN=$(aws s3 cp s3://"${BUCKET}"/controlplane/token -)
     export K3S_TOKEN
     SNAPSHOT=$(aws s3api list-objects-v2 \
       --bucket "${BUCKET}" \
@@ -89,9 +89,6 @@ K3S_S3_COPY() {
 }
 
 K3S_RESTORE() {
-  if [ -z "$SNAPSHOT" ]; then
-    echo "INFO cluster init from scratch"
-  else
     echo "INFO cluster init from restore"
     INSTALL_K3S_SKIP_DOWNLOAD=true /usr/local/bin/install.sh \
       server \
@@ -121,9 +118,20 @@ K3S_RESTORE() {
       --tls-san="${PRIVATE_IP}" \
       -t "$K3S_TOKEN"
 
-      mv /var/lib/rancher/k3s/server/tls /var/lib/rancher/k3s/server/tls.old
-      mv /var/lib/rancher/k3s/server/cred/ipsec.psk /var/lib/rancher/k3s/server/cred/ipsec.psk.old
-  fi
+      rm -f \
+        /var/lib/rancher/k3s/server/cred/ipsec.psk \
+        /var/lib/rancher/k3s/server/cred/passwd \
+        /var/lib/rancher/k3s/server/tls/client-ca.crt \
+        /var/lib/rancher/k3s/server/tls/client-ca.key \
+        /var/lib/rancher/k3s/server/tls/etcd/peer-ca.crt \
+        /var/lib/rancher/k3s/server/tls/etcd/peer-ca.key \
+        /var/lib/rancher/k3s/server/tls/etcd/server-ca.crt \
+        /var/lib/rancher/k3s/server/tls/etcd/server-ca.key \
+        /var/lib/rancher/k3s/server/tls/request-header-ca.crt \
+        /var/lib/rancher/k3s/server/tls/request-header-ca.key \
+        /var/lib/rancher/k3s/server/tls/server-ca.crt \
+        /var/lib/rancher/k3s/server/tls/server-ca.key \
+        /var/lib/rancher/k3s/server/tls/service.key
 }
 
 K3S_INSTALL() {
@@ -155,23 +163,20 @@ K3S_INSTALL() {
 }
 
 K3S_POST_INSTALL() {
-  if [ -z "$SNAPSHOT" ]; then
-    echo "INFO cluster init post-install (s3 uploads)"
-    until [ -f /etc/rancher/k3s/k3s.yaml ]; do
+  for S3_FILE in \
+    /var/lib/rancher/k3s/server/agent-token \
+    /var/lib/rancher/k3s/server/token
+  do
+    until [ -f "$S3_FILE" ]; do
       sleep 1
     done
-    sed 's#https://.*:6443#https://'"$PUBLIC_IP"':6443#' /etc/rancher/k3s/k3s.yaml | aws s3 cp - s3://"${BUCKET}"/controlplane/config
+    aws s3 cp "$S3_FILE" "s3://${BUCKET}/controlplane/$(basename $S3_FILE)"
+  done
 
-    until [ -f /var/lib/rancher/k3s/server/token ]; do
-      sleep 1
-    done
-    aws s3 cp /var/lib/rancher/k3s/server/token s3://"${BUCKET}"/controlplane/SERVER_NODE_TOKEN
-
-    until [ -f /var/lib/rancher/k3s/server/agent-token ]; do
-      sleep 1
-    done
-    aws s3 cp /var/lib/rancher/k3s/server/agent-token s3://"${BUCKET}"/controlplane/AGENT_NODE_TOKEN
-  fi
+  until [ -f /etc/rancher/k3s/k3s.yaml ]; do
+    sleep 1
+  done
+  sed 's#https://.*:6443#https://'"$PUBLIC_IP"':6443#' /etc/rancher/k3s/k3s.yaml | aws s3 cp - s3://"${BUCKET}"/controlplane/config
 }
 
 EC2_METADATA
@@ -184,6 +189,6 @@ ENSURE_DIRS
 ECR_HELPER
 RESOLV_CONF
 K3S_S3_COPY
-K3S_RESTORE
+if [ -n "$SNAPSHOT" ]; then K3S_RESTORE; fi
 K3S_INSTALL
-K3S_POST_INSTALL
+if [ -z "$SNAPSHOT" ]; then K3S_POST_INSTALL; fi

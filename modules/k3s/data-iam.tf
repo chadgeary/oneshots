@@ -29,6 +29,8 @@ data "aws_iam_policy_document" "this-controlplane" {
     actions = [
       "ssm:ListAssociations",
       "ssm:ListInstanceAssociations",
+      "ssm:UpdateAssociationStatus",
+      "ssm:UpdateInstanceAssociationStatus",
       "ssm:UpdateInstanceInformation",
       "ssmmessages:CreateControlChannel",
       "ssmmessages:CreateDataChannel",

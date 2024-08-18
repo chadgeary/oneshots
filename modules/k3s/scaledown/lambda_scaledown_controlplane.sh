@@ -41,7 +41,7 @@ K3S_KILL() {
 }
 
 ASG_NOTIFY() {
-	sleep 60
+	sleep 5
 	aws autoscaling complete-lifecycle-action \
 	--auto-scaling-group-name "$NAME-controlplane" \
 	--instance-id "$INSTANCE_ID" \
