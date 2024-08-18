@@ -3,6 +3,9 @@ variable "aws" {
     amis = map(object({
       id = string
     }))
+    caller_identity = object({
+      account_id = string
+    })
     default_tags = object({
       tags = object({
         Name = string
@@ -11,6 +14,9 @@ variable "aws" {
     k3s_instance_types = map(list(string))
     partition = object({
       id = string
+    })
+    region = object({
+      name = string
     })
     session_context = object({
       issuer_arn = string

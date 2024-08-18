@@ -1,6 +1,16 @@
 data "aws_iam_policy_document" "this-controlplane" {
   version = "2012-10-17"
   statement {
+    sid = "asg"
+    actions = [
+      "autoscaling:CompleteLifecycleAction"
+    ]
+    effect = "Allow"
+    resources = [
+      "arn:${var.aws.partition.id}:autoscaling:${var.aws.region.name}:${var.aws.caller_identity.account_id}:autoScalingGroup:*:autoScalingGroupName/${var.aws.default_tags.tags["Name"]}-controlplane"
+    ]
+  }
+  statement {
     sid = "ecr"
     actions = [
       "ecr:BatchCheckLayerAvailability",
@@ -17,11 +27,14 @@ data "aws_iam_policy_document" "this-controlplane" {
   statement {
     sid = "ssm"
     actions = [
+      "ssm:ListAssociations",
+      "ssm:ListInstanceAssociations",
       "ssm:UpdateInstanceInformation",
       "ssmmessages:CreateControlChannel",
       "ssmmessages:CreateDataChannel",
       "ssmmessages:OpenControlChannel",
       "ssmmessages:OpenDataChannel",
+
     ]
     effect    = "Allow"
     resources = ["*"]
@@ -75,6 +88,32 @@ data "aws_iam_policy_document" "this-controlplane-assume" {
   }
 }
 
+data "aws_iam_policy_document" "this-controlplane-scaledown" {
+  version = "2012-10-17"
+  statement {
+    sid = "sns"
+    actions = [
+      "sns:Publish"
+    ]
+    effect    = "Allow"
+    resources = [aws_sns_topic.this-controlplane.arn]
+  }
+}
+
+data "aws_iam_policy_document" "this-controlplane-scaledown-assume" {
+  statement {
+    sid = "autoscaling"
+    actions = [
+      "sts:AssumeRole"
+    ]
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["autoscaling.amazonaws.com"]
+    }
+  }
+}
+
 data "aws_iam_policy_document" "this-files" {
   version = "2012-10-17"
   statement {
@@ -108,7 +147,7 @@ data "aws_iam_policy_document" "this-files" {
   }
 }
 
-data "aws_iam_policy_document" "this-files-assume" {
+data "aws_iam_policy_document" "this-lambda-assume" {
   statement {
     sid = "lambda"
     actions = [
@@ -195,6 +234,42 @@ data "aws_iam_policy_document" "this-s3" {
         aws_iam_role.this-controlplane.arn,
         # aws_iam_role.this-worker.arn,
       ]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "this-scaledown" {
+  version = "2012-10-17"
+  statement {
+    sid = "log"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    effect    = "Allow"
+    resources = ["${aws_cloudwatch_log_group.this-scaledown.arn}:log-stream:*"]
+  }
+  statement {
+    sid = "ssm1"
+    actions = [
+      "ssm:SendCommand"
+    ]
+    effect    = "Allow"
+    resources = ["arn:${var.aws.partition.id}:ssm:${var.aws.region.name}::document/AWS-RunShellScript"]
+  }
+  statement {
+    sid = "ssm2"
+    actions = [
+      "ssm:SendCommand"
+    ]
+    effect = "Allow"
+    resources = [
+      "arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:instance/i-*"
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "ssm:resourceTag/Name"
+      values   = ["${var.aws.default_tags.tags["Name"]}-controlplane"]
     }
   }
 }

@@ -2,9 +2,23 @@ resource "aws_ssm_association" "this-nat" {
   name = "AWS-RunShellScript"
   parameters = {
     commands = <<EOF
-iptables -t nat -A PREROUTING -p tcp --dport 443 -j DNAT --to-destination ${aws_network_interface.this-controlplane.private_ip}:443
-iptables -t nat -A PREROUTING -p tcp --dport 6443 -j DNAT --to-destination ${aws_network_interface.this-controlplane.private_ip}:6443
-iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination ${aws_network_interface.this-controlplane.private_ip}:80
+until command -v iptables; do
+  sleep 1
+done
+
+if iptables -nL -t nat | grep --quiet '^ACCEPT.*all.*'; then
+  echo "ACCEPT all SOURCE ${aws_network_interface.this-controlplane.private_ip} exists, skipping"
+else
+  iptables -t nat -A PREROUTING -s ${aws_network_interface.this-controlplane.private_ip} -j ACCEPT
+fi
+
+for PORT_FORWARD in 443 6443 80; do
+  if iptables -nL -t nat | grep --quiet '^DNAT.*tcp.*dpt:'"$PORT_FORWARD"''; then
+    echo "DNAT tcp $PORT_FORWARD exists, skipping"
+  else
+    iptables -t nat -A PREROUTING -p tcp --dport $PORT_FORWARD -j DNAT --to-destination ${aws_network_interface.this-controlplane.private_ip}:$PORT_FORWARD
+  fi
+done
 EOF
   }
   targets {
