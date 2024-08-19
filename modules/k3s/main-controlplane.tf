@@ -47,6 +47,13 @@ resource "aws_network_interface" "this-controlplane" {
   tags            = { Name = "${var.aws.default_tags.tags["Name"]}-controlplane" }
 }
 
+resource "aws_ebs_volume" "this-controlplane" {
+  availability_zone = lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["availability_zone"]
+  size = "5"
+  type = "gp3"
+  tags            = { Name = "${var.aws.default_tags.tags["Name"]}-controlplane" }
+}
+
 resource "aws_launch_template" "this-controlplane" {
   image_id = local.image_id
   name     = "${var.aws.default_tags.tags["Name"]}-controlplane"
@@ -68,6 +75,7 @@ resource "aws_launch_template" "this-controlplane" {
       BUCKET     = aws_s3_bucket.this.id,
       PRIVATE_IP = cidrhost(lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["cidr_block"], 10)
       PUBLIC_IP  = var.nat.eip[lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["availability_zone"]].public_ip
+      VOLUME     = aws_ebs_volume.this-controlplane.id
     }
   ))
 }
@@ -79,14 +87,6 @@ resource "aws_autoscaling_group" "this-controlplane" {
   max_size           = 1
   min_size           = 1
   name               = "${var.aws.default_tags.tags["Name"]}-controlplane"
-  initial_lifecycle_hook {
-    name                    = "${var.aws.default_tags.tags["Name"]}-controlplane"
-    default_result          = "ABANDON"
-    heartbeat_timeout       = 300
-    lifecycle_transition    = "autoscaling:EC2_INSTANCE_TERMINATING"
-    notification_target_arn = aws_sns_topic.this-controlplane.arn
-    role_arn                = aws_iam_role.this-controlplane-scaledown.arn
-  }
   mixed_instances_policy {
     instances_distribution {
       on_demand_base_capacity                  = 0
@@ -118,16 +118,66 @@ resource "aws_autoscaling_group" "this-controlplane" {
   }
 }
 
-resource "aws_iam_role" "this-controlplane-scaledown" {
+resource "aws_iam_role" "this-controlplane-autoscaling" {
   assume_role_policy = data.aws_iam_policy_document.this-assume["autoscaling"].json
-  description        = "${var.aws.default_tags.tags["Name"]}-controlplane-scaledown"
-  name               = "${var.aws.default_tags.tags["Name"]}-controlplane-scaledown"
+  description        = "${var.aws.default_tags.tags["Name"]}-controlplane-autoscaling"
+  name               = "${var.aws.default_tags.tags["Name"]}-controlplane-autoscaling"
   inline_policy {
-    name   = "${var.aws.default_tags.tags["Name"]}-controlplane-scaledown"
-    policy = data.aws_iam_policy_document.this-controlplane-scaledown.json
+    name   = "${var.aws.default_tags.tags["Name"]}-controlplane-autoscaling"
+    policy = data.aws_iam_policy_document.this-controlplane-autoscaling.json
   }
 }
 
-resource "aws_sns_topic" "this-controlplane" {
-  name = "${var.aws.default_tags.tags["Name"]}-controlplane"
+resource "aws_sns_topic" "this-controlplane-autoscaling" {
+  name = "${var.aws.default_tags.tags["Name"]}-controlplane-autoscaling"
+}
+
+# autoscaling
+resource "aws_sns_topic_subscription" "this-controlplane-autoscaling" {
+  topic_arn = aws_sns_topic.this-controlplane-autoscaling.arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.this-lambdas["gracefulshutdown"].arn
+}
+
+resource "aws_lambda_permission" "this-controlplane-autoscaling" {
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.this-lambdas["gracefulshutdown"].function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = aws_sns_topic.this-controlplane-autoscaling.arn
+  statement_id  = "AllowExecutionFromSNS"
+}
+
+resource "aws_autoscaling_lifecycle_hook" "this-controlplane-autoscaling" {
+    autoscaling_group_name = aws_autoscaling_group.this-controlplane.name
+    default_result          = "ABANDON"
+    heartbeat_timeout       = 120
+    lifecycle_transition    = "autoscaling:EC2_INSTANCE_TERMINATING"
+    name                    = "${var.aws.default_tags.tags["Name"]}-controlplane"
+    notification_target_arn = aws_sns_topic.this-controlplane-autoscaling.arn
+    role_arn                = aws_iam_role.this-controlplane-autoscaling.arn
+}
+
+# interrupts
+resource "aws_cloudwatch_event_rule" "this-controlplane-interrupt" {
+  name        = "${var.aws.default_tags.tags["Name"]}-controlplane"
+  description = "${var.aws.default_tags.tags["Name"]}-controlplane"
+  event_pattern = jsonencode({
+    detail-type = ["EC2 Spot Instance Interruption Warning"]
+    source = ["aws.ec2"]
+    region = [var.aws.region.name]
+  })
+}
+
+resource "aws_cloudwatch_event_target" "this-controlplane-interrupt" {
+  arn       = aws_lambda_function.this-lambdas["gracefulshutdown"].arn
+  rule      = aws_cloudwatch_event_rule.this-controlplane-interrupt.name
+  target_id = "interrupt"
+}
+
+resource "aws_lambda_permission" "this-controlplane-interrupt" {
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.this-lambdas["gracefulshutdown"].function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.this-controlplane-interrupt.arn
+  statement_id  = "AllowExecutionFromCloudWatch"
 }

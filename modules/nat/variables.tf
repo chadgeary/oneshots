@@ -17,7 +17,6 @@ variable "aws" {
 variable "vpc" {
   type = object({
     subnets = map(map(object({
-      arn               = string
       availability_zone = string
       cidr_block        = string
       id                = string
