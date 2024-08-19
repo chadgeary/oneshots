@@ -37,8 +37,11 @@ NODE_DRAIN() {
 }
 
 K3S_KILL() {
-  KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl \
-    delete node "$INSTANCE_IP"
+  KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+  kubectl get node -o name "$INSTANCE_IP" | \
+    xargs -i kubectl patch {} -p '{"metadata":{"finalizers":[]}}' --type=merge
+  kubectl \
+    delete node "$INSTANCE_IP" &
   /usr/local/bin/k3s-killall.sh
 }
 

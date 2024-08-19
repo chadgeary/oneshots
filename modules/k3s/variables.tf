@@ -46,7 +46,7 @@ variable "vpc" {
     })))
     vpc = object({
       cidr_block = string
-      id = string
+      id         = string
     })
   })
 }

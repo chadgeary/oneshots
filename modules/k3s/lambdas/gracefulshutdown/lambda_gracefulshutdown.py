@@ -7,7 +7,7 @@ from pathlib import Path
 import boto3
 
 """ lifecyclehook
-{ "Records": [ "Sns": "Message": "{ \"EC2InstanceId\": \"i-00000000000000000\"}" ]}
+{ "Records": [ { "Sns": { "Message": "{ \"EC2InstanceId\": \"i-00000000000000000\"}" }}]}
 """
 
 """ spotinterruption

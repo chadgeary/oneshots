@@ -49,9 +49,9 @@ resource "aws_network_interface" "this-controlplane" {
 
 resource "aws_ebs_volume" "this-controlplane" {
   availability_zone = lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["availability_zone"]
-  size = "5"
-  type = "gp3"
-  tags            = { Name = "${var.aws.default_tags.tags["Name"]}-controlplane" }
+  size              = "5"
+  type              = "gp3"
+  tags              = { Name = "${var.aws.default_tags.tags["Name"]}-controlplane" }
 }
 
 resource "aws_launch_template" "this-controlplane" {
@@ -68,23 +68,23 @@ resource "aws_launch_template" "this-controlplane" {
   }
   user_data = base64encode(templatefile(
     "${path.module}/user_data.sh.tftpl", {
-      NAME       = var.aws.default_tags.tags["Name"]
-      BUCKET     = aws_s3_bucket.this.id
+      NAME         = var.aws.default_tags.tags["Name"]
+      BUCKET       = aws_s3_bucket.this.id
       INTERFACE_ID = aws_network_interface.this-controlplane.id
-      PRIVATE_IP = cidrhost(lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["cidr_block"], 10)
-      PUBLIC_IP  = var.nat.eip[lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["availability_zone"]].public_ip
-      VOLUME     = aws_ebs_volume.this-controlplane.id
+      PRIVATE_IP   = cidrhost(lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["cidr_block"], 10)
+      PUBLIC_IP    = var.nat.eip[lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["availability_zone"]].public_ip
+      VOLUME       = aws_ebs_volume.this-controlplane.id
     }
   ))
   vpc_security_group_ids = [aws_security_group.this-controlplane.id]
 }
 
 resource "aws_autoscaling_group" "this-controlplane" {
-  capacity_rebalance = false
-  desired_capacity   = 1
-  max_size           = 1
-  min_size           = 1
-  name               = "${var.aws.default_tags.tags["Name"]}-controlplane"
+  capacity_rebalance  = false
+  desired_capacity    = 1
+  max_size            = 1
+  min_size            = 1
+  name                = "${var.aws.default_tags.tags["Name"]}-controlplane"
   vpc_zone_identifier = [for each in var.vpc.subnets.private : each.id]
   mixed_instances_policy {
     instances_distribution {
@@ -147,13 +147,13 @@ resource "aws_lambda_permission" "this-controlplane-autoscaling" {
 }
 
 resource "aws_autoscaling_lifecycle_hook" "this-controlplane-autoscaling" {
-    autoscaling_group_name = aws_autoscaling_group.this-controlplane.name
-    default_result          = "ABANDON"
-    heartbeat_timeout       = 120
-    lifecycle_transition    = "autoscaling:EC2_INSTANCE_TERMINATING"
-    name                    = "${var.aws.default_tags.tags["Name"]}-controlplane"
-    notification_target_arn = aws_sns_topic.this-controlplane-autoscaling.arn
-    role_arn                = aws_iam_role.this-controlplane-autoscaling.arn
+  autoscaling_group_name  = aws_autoscaling_group.this-controlplane.name
+  default_result          = "ABANDON"
+  heartbeat_timeout       = 120
+  lifecycle_transition    = "autoscaling:EC2_INSTANCE_TERMINATING"
+  name                    = "${var.aws.default_tags.tags["Name"]}-controlplane"
+  notification_target_arn = aws_sns_topic.this-controlplane-autoscaling.arn
+  role_arn                = aws_iam_role.this-controlplane-autoscaling.arn
 }
 
 # interrupts
@@ -162,8 +162,8 @@ resource "aws_cloudwatch_event_rule" "this-controlplane-interrupt" {
   description = "${var.aws.default_tags.tags["Name"]}-controlplane"
   event_pattern = jsonencode({
     detail-type = ["EC2 Spot Instance Interruption Warning"]
-    source = ["aws.ec2"]
-    region = [var.aws.region.name]
+    source      = ["aws.ec2"]
+    region      = [var.aws.region.name]
   })
 }
 

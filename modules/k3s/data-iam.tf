@@ -32,7 +32,7 @@ data "aws_iam_policy_document" "this-controlplane" {
       "ec2:AttachVolume",
       "ec2:DetachVolume",
     ]
-    effect    = "Allow"
+    effect = "Allow"
     resources = [
       "arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:instance/i-*",
       "arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:volume/vol-*",
@@ -40,7 +40,7 @@ data "aws_iam_policy_document" "this-controlplane" {
     condition {
       test     = "StringEquals"
       variable = "aws:ResourceTag/Name"
-      values   = ["${var.aws.default_tags.tags["Name"]}-controlplane" ]
+      values   = ["${var.aws.default_tags.tags["Name"]}-controlplane"]
     }
   }
   statement {
@@ -71,7 +71,7 @@ data "aws_iam_policy_document" "this-controlplane" {
       "ec2:AttachNetworkInterface",
       "ec2:DetachNetworkInterface",
     ]
-    effect    = "Allow"
+    effect = "Allow"
     resources = [
       "arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:instance/i-*",
       aws_network_interface.this-controlplane.arn,
@@ -79,7 +79,7 @@ data "aws_iam_policy_document" "this-controlplane" {
     condition {
       test     = "StringEquals"
       variable = "aws:ResourceTag/Name"
-      values   = ["${var.aws.default_tags.tags["Name"]}-controlplane" ]
+      values   = ["${var.aws.default_tags.tags["Name"]}-controlplane"]
     }
   }
   statement {
@@ -105,7 +105,7 @@ data "aws_iam_policy_document" "this-controlplane" {
       "s3:GetObjectVersion"
     ]
     resources = ["${aws_s3_bucket.this.arn}/files/*"]
-    effect = "Allow"
+    effect    = "Allow"
   }
   statement {
     sid = "s32"
@@ -284,7 +284,7 @@ data "aws_iam_policy_document" "this-lambdas" {
         "s3:GetObject",
         "s3:PutObjectTagging",
       ]
-      effect = "Allow"
+      effect    = "Allow"
       resources = ["${aws_s3_bucket.this.arn}/controlplane/oidc/*"]
     }
   }
@@ -319,7 +319,7 @@ data "aws_iam_policy_document" "this-lambdas" {
       actions = [
         "ssm:SendCommand"
       ]
-      effect = "Allow"
+      effect    = "Allow"
       resources = ["arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:instance/i-*"]
       condition {
         test     = "StringEquals"
