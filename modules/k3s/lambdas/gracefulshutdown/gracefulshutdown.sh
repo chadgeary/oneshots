@@ -9,14 +9,8 @@ EC2_METADATA() {
 
 GET_ENV() {
   source /opt/k3s.env
-}
-
-INSTANCE_NAME() {
-  if [ "$INSTANCE_REGION" == "us-east-1" ]; then
-    NODE_NAME="$(hostname).ec2.internal"
-  else
-    NODE_NAME="$(hostname).$INSTANCE_REGION.compute.internal"
-  fi
+  KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+  export KUBECONFIG
 }
 
 ETCD_SNAPSHOT() {
@@ -28,7 +22,7 @@ ETCD_SNAPSHOT() {
 }
 
 NODE_DRAIN() {
-  KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl \
+  kubectl \
     drain "$INSTANCE_IP" \
     --delete-emptydir-data \
     --force \
@@ -37,9 +31,8 @@ NODE_DRAIN() {
 }
 
 K3S_KILL() {
-  KUBECONFIG=/etc/rancher/k3s/k3s.yaml
   kubectl get node -o name "$INSTANCE_IP" | \
-    xargs -i kubectl patch {} -p '{"metadata":{"finalizers":[]}}' --type=merge
+    xargs -I {} kubectl patch {} -p '{"metadata":{"finalizers":[]}}' --type=merge
   kubectl \
     delete node "$INSTANCE_IP" &
   /usr/local/bin/k3s-killall.sh
@@ -60,7 +53,7 @@ UNMOUNT_VOL() {
 DETACH_ENI() {
   ATTACHMENT_ID=$(aws ec2 describe-network-interfaces --filters Name=private-ip-address,Values="$PRIVATE_IP" --query 'NetworkInterfaces[0].Attachment.AttachmentId' --output text)
   aws ec2 detach-network-interface \
-    --attachment-id $ATTACHMENT_ID
+    --attachment-id "$ATTACHMENT_ID"
 }
 
 ASG_NOTIFY() {
@@ -84,7 +77,6 @@ ASG_DETACH() {
 
 EC2_METADATA
 GET_ENV
-INSTANCE_NAME
 ETCD_SNAPSHOT
 NODE_DRAIN
 K3S_KILL
