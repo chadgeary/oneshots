@@ -7,7 +7,7 @@ variable "install" {
     })
   })
   default = {
-    name = "1shot2"
+    name = "oneshots-k3s"
     vpc = {
       cidr  = "10.100.0.0/20"
       zones = 1

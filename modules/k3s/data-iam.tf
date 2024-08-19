@@ -1,14 +1,47 @@
+data "aws_iam_policy_document" "this-assume" {
+  for_each = toset(["autoscaling", "ec2", "lambda"])
+  statement {
+    sid = each.key
+    actions = [
+      "sts:AssumeRole"
+    ]
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["${each.key}.amazonaws.com"]
+    }
+  }
+}
+
 data "aws_iam_policy_document" "this-controlplane" {
   version = "2012-10-17"
   statement {
     sid = "asg"
     actions = [
-      "autoscaling:CompleteLifecycleAction"
+      "autoscaling:CompleteLifecycleAction",
+      "autoscaling:DetachInstances",
     ]
     effect = "Allow"
     resources = [
       "arn:${var.aws.partition.id}:autoscaling:${var.aws.region.name}:${var.aws.caller_identity.account_id}:autoScalingGroup:*:autoScalingGroupName/${var.aws.default_tags.tags["Name"]}-controlplane"
     ]
+  }
+  statement {
+    sid = "ebs"
+    actions = [
+      "ec2:AttachVolume",
+      "ec2:DetachVolume",
+    ]
+    effect = "Allow"
+    resources = [
+      "arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:instance/i-*",
+      "arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:volume/vol-*",
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/Name"
+      values   = ["${var.aws.default_tags.tags["Name"]}-controlplane"]
+    }
   }
   statement {
     sid = "ecr"
@@ -25,6 +58,31 @@ data "aws_iam_policy_document" "this-controlplane" {
     resources = ["*"]
   }
   statement {
+    sid = "eni1"
+    actions = [
+      "ec2:DescribeNetworkInterfaces",
+    ]
+    effect    = "Allow"
+    resources = ["*"]
+  }
+  statement {
+    sid = "eni2"
+    actions = [
+      "ec2:AttachNetworkInterface",
+      "ec2:DetachNetworkInterface",
+    ]
+    effect = "Allow"
+    resources = [
+      "arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:instance/i-*",
+      aws_network_interface.this-controlplane.arn,
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/Name"
+      values   = ["${var.aws.default_tags.tags["Name"]}-controlplane"]
+    }
+  }
+  statement {
     sid = "ssm"
     actions = [
       "ssm:ListAssociations",
@@ -36,7 +94,6 @@ data "aws_iam_policy_document" "this-controlplane" {
       "ssmmessages:CreateDataChannel",
       "ssmmessages:OpenControlChannel",
       "ssmmessages:OpenDataChannel",
-
     ]
     effect    = "Allow"
     resources = ["*"]
@@ -47,10 +104,8 @@ data "aws_iam_policy_document" "this-controlplane" {
       "s3:GetObject",
       "s3:GetObjectVersion"
     ]
-    resources = [
-      "${aws_s3_bucket.this.arn}/files/*",
-    ]
-    effect = "Allow"
+    resources = ["${aws_s3_bucket.this.arn}/files/*"]
+    effect    = "Allow"
   }
   statement {
     sid = "s32"
@@ -65,8 +120,6 @@ data "aws_iam_policy_document" "this-controlplane" {
       "s3:ListBucketMultipartUploads",
       "s3:ListMultipartUploadParts",
       "s3:PutObject",
-      "s3:PutObjectAcl",
-      "s3:PutObjectTagging",
     ]
     resources = [
       aws_s3_bucket.this.arn,
@@ -76,21 +129,7 @@ data "aws_iam_policy_document" "this-controlplane" {
   }
 }
 
-data "aws_iam_policy_document" "this-controlplane-assume" {
-  statement {
-    sid = "ec2"
-    actions = [
-      "sts:AssumeRole"
-    ]
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
-    }
-  }
-}
-
-data "aws_iam_policy_document" "this-controlplane-scaledown" {
+data "aws_iam_policy_document" "this-controlplane-autoscaling" {
   version = "2012-10-17"
   statement {
     sid = "sns"
@@ -98,73 +137,11 @@ data "aws_iam_policy_document" "this-controlplane-scaledown" {
       "sns:Publish"
     ]
     effect    = "Allow"
-    resources = [aws_sns_topic.this-controlplane.arn]
-  }
-}
-
-data "aws_iam_policy_document" "this-controlplane-scaledown-assume" {
-  statement {
-    sid = "autoscaling"
-    actions = [
-      "sts:AssumeRole"
-    ]
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["autoscaling.amazonaws.com"]
-    }
-  }
-}
-
-data "aws_iam_policy_document" "this-files" {
-  version = "2012-10-17"
-  statement {
-    sid = "log"
-    actions = [
-      "logs:CreateLogStream",
-      "logs:PutLogEvents"
-    ]
-    effect    = "Allow"
-    resources = ["${aws_cloudwatch_log_group.this-files.arn}:log-stream:*"]
-  }
-  statement {
-    sid = "s3"
-    actions = [
-      "s3:AbortMultipartUpload",
-      "s3:GetBucketLocation",
-      "s3:GetObjectAcl",
-      "s3:GetObjectTagging",
-      "s3:ListBucket",
-      "s3:ListBucketMultipartUploads",
-      "s3:ListMultipartUploadParts",
-      "s3:PutObject",
-      "s3:PutObjectAcl",
-      "s3:PutObjectTagging",
-    ]
-    effect = "Allow"
-    resources = [
-      aws_s3_bucket.this.arn,
-      "${aws_s3_bucket.this.arn}/files/*",
-    ]
-  }
-}
-
-data "aws_iam_policy_document" "this-lambda-assume" {
-  statement {
-    sid = "lambda"
-    actions = [
-      "sts:AssumeRole"
-    ]
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
+    resources = [aws_sns_topic.this-controlplane-autoscaling.arn]
   }
 }
 
 data "aws_iam_policy_document" "this-s3" {
-
   statement {
     sid = "full"
     actions = [
@@ -181,7 +158,6 @@ data "aws_iam_policy_document" "this-s3" {
       ]
     }
   }
-
   statement {
     sid    = "files"
     effect = "Allow"
@@ -195,7 +171,6 @@ data "aws_iam_policy_document" "this-s3" {
       "s3:ListMultipartUploadParts",
       "s3:PutObject",
       "s3:PutObjectAcl",
-      "s3:PutObjectTagging",
     ]
     resources = [
       aws_s3_bucket.this.arn,
@@ -204,11 +179,10 @@ data "aws_iam_policy_document" "this-s3" {
     principals {
       type = "AWS"
       identifiers = [
-        aws_iam_role.this-files.arn,
+        aws_iam_role.this-lambdas["files"].arn,
       ]
     }
   }
-
   statement {
     sid    = "ec2"
     effect = "Allow"
@@ -223,8 +197,6 @@ data "aws_iam_policy_document" "this-s3" {
       "s3:ListBucketMultipartUploads",
       "s3:ListMultipartUploadParts",
       "s3:PutObject",
-      "s3:PutObjectAcl",
-      "s3:PutObjectTagging",
     ]
     resources = [
       aws_s3_bucket.this.arn,
@@ -238,10 +210,42 @@ data "aws_iam_policy_document" "this-s3" {
       ]
     }
   }
+  statement {
+    sid    = "oidc"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObjectTagging",
+    ]
+    resources = ["${aws_s3_bucket.this.arn}/controlplane/oidc/*"]
+    principals {
+      type = "AWS"
+      identifiers = [
+        aws_iam_role.this-lambdas["oidc"].arn,
+      ]
+    }
+  }
+  statement {
+    sid = "public"
+    actions = [
+      "s3:GetObject",
+    ]
+    resources = ["${aws_s3_bucket.this.arn}/controlplane/oidc/*"]
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "s3:ExistingObjectTag/public"
+      values   = ["true"]
+    }
+  }
 }
 
-data "aws_iam_policy_document" "this-scaledown" {
-  version = "2012-10-17"
+data "aws_iam_policy_document" "this-lambdas" {
+  for_each = local.lambdas
+  version  = "2012-10-17"
   statement {
     sid = "log"
     actions = [
@@ -249,29 +253,79 @@ data "aws_iam_policy_document" "this-scaledown" {
       "logs:PutLogEvents"
     ]
     effect    = "Allow"
-    resources = ["${aws_cloudwatch_log_group.this-scaledown.arn}:log-stream:*"]
+    resources = ["${aws_cloudwatch_log_group.this-lambdas[each.key].arn}:log-stream:*"]
   }
-  statement {
-    sid = "ssm1"
-    actions = [
-      "ssm:SendCommand"
-    ]
-    effect    = "Allow"
-    resources = ["arn:${var.aws.partition.id}:ssm:${var.aws.region.name}::document/AWS-RunShellScript"]
+  dynamic "statement" {
+    for_each = each.key == "files" ? [1] : []
+    content {
+      sid = "s3"
+      actions = [
+        "s3:AbortMultipartUpload",
+        "s3:GetBucketLocation",
+        "s3:GetObjectAcl",
+        "s3:GetObjectTagging",
+        "s3:ListBucket",
+        "s3:ListBucketMultipartUploads",
+        "s3:ListMultipartUploadParts",
+        "s3:PutObject",
+      ]
+      effect = "Allow"
+      resources = [
+        aws_s3_bucket.this.arn,
+        "${aws_s3_bucket.this.arn}/files/*",
+      ]
+    }
   }
-  statement {
-    sid = "ssm2"
-    actions = [
-      "ssm:SendCommand"
-    ]
-    effect = "Allow"
-    resources = [
-      "arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:instance/i-*"
-    ]
-    condition {
-      test     = "StringEquals"
-      variable = "ssm:resourceTag/Name"
-      values   = ["${var.aws.default_tags.tags["Name"]}-controlplane"]
+  dynamic "statement" {
+    for_each = each.key == "oidc" ? [1] : []
+    content {
+      sid = "s3"
+      actions = [
+        "s3:GetObject",
+        "s3:PutObjectTagging",
+      ]
+      effect    = "Allow"
+      resources = ["${aws_s3_bucket.this.arn}/controlplane/oidc/*"]
+    }
+  }
+  dynamic "statement" {
+    for_each = each.key == "oidc" ? [1] : []
+    content {
+      sid = "iam"
+      actions = [
+        "iam:CreateOpenIDConnectProvider",
+        "iam:TagOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint",
+      ]
+      effect    = "Allow"
+      resources = ["arn:${var.aws.partition.id}:iam::${var.aws.caller_identity.account_id}:oidc-provider/s3.${var.aws.region.name}.amazonaws.com/${var.aws.default_tags.tags["Name"]}-k3sfiles/oidc"]
+    }
+  }
+  dynamic "statement" {
+    for_each = each.key == "gracefulshutdown" ? [1] : []
+    content {
+      sid = "ssm1"
+      actions = [
+        "ssm:SendCommand"
+      ]
+      effect    = "Allow"
+      resources = ["arn:${var.aws.partition.id}:ssm:${var.aws.region.name}::document/AWS-RunShellScript"]
+    }
+  }
+  dynamic "statement" {
+    for_each = each.key == "gracefulshutdown" ? [1] : []
+    content {
+      sid = "ssm2"
+      actions = [
+        "ssm:SendCommand"
+      ]
+      effect    = "Allow"
+      resources = ["arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:instance/i-*"]
+      condition {
+        test     = "StringEquals"
+        variable = "ssm:resourceTag/Name"
+        values   = ["${var.aws.default_tags.tags["Name"]}-controlplane"]
+      }
     }
   }
 }

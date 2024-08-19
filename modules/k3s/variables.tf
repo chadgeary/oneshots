@@ -40,13 +40,13 @@ variable "vpc" {
       private = string
     })
     subnets = map(map(object({
-      arn               = string
       availability_zone = string
       cidr_block        = string
       id                = string
     })))
     vpc = object({
-      id = string
+      cidr_block = string
+      id         = string
     })
   })
 }
