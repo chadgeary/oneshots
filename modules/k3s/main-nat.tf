@@ -11,9 +11,9 @@ until iptables -nL -t nat | grep --quiet 'NAT Gateway'; do
 done
 
 if iptables -nL -t nat | grep --quiet '^ACCEPT.*all.*'; then
-  echo "ACCEPT all SOURCE ${aws_network_interface.this-controlplane.private_ip} exists, skipping"
+  echo "ACCEPT all SOURCE ${cidrsubnet(var.vpc.vpc.cidr_block, 1, 0)} exists, skipping"
 else
-  iptables -t nat -A PREROUTING -s ${aws_network_interface.this-controlplane.private_ip} -j ACCEPT
+  iptables -t nat -A PREROUTING -s ${cidrsubnet(var.vpc.vpc.cidr_block, 1, 0)} -j ACCEPT
 fi
 
 for PORT_FORWARD in 443 6443 80; do

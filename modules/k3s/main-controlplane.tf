@@ -66,27 +66,26 @@ resource "aws_launch_template" "this-controlplane" {
     http_tokens                 = "required"
     instance_metadata_tags      = "disabled"
   }
-  network_interfaces {
-    network_interface_id = aws_network_interface.this-controlplane.id
-  }
   user_data = base64encode(templatefile(
     "${path.module}/user_data.sh.tftpl", {
-      NAME       = var.aws.default_tags.tags["Name"],
-      BUCKET     = aws_s3_bucket.this.id,
+      NAME       = var.aws.default_tags.tags["Name"]
+      BUCKET     = aws_s3_bucket.this.id
+      INTERFACE_ID = aws_network_interface.this-controlplane.id
       PRIVATE_IP = cidrhost(lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["cidr_block"], 10)
       PUBLIC_IP  = var.nat.eip[lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["availability_zone"]].public_ip
       VOLUME     = aws_ebs_volume.this-controlplane.id
     }
   ))
+  vpc_security_group_ids = [aws_security_group.this-controlplane.id]
 }
 
 resource "aws_autoscaling_group" "this-controlplane" {
-  availability_zones = [lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["availability_zone"]]
   capacity_rebalance = false
   desired_capacity   = 1
   max_size           = 1
   min_size           = 1
   name               = "${var.aws.default_tags.tags["Name"]}-controlplane"
+  vpc_zone_identifier = [for each in var.vpc.subnets.private : each.id]
   mixed_instances_policy {
     instances_distribution {
       on_demand_base_capacity                  = 0

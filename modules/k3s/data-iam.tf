@@ -58,6 +58,31 @@ data "aws_iam_policy_document" "this-controlplane" {
     resources = ["*"]
   }
   statement {
+    sid = "eni1"
+    actions = [
+      "ec2:DescribeNetworkInterfaces",
+    ]
+    effect    = "Allow"
+    resources = ["*"]
+  }
+  statement {
+    sid = "eni2"
+    actions = [
+      "ec2:AttachNetworkInterface",
+      "ec2:DetachNetworkInterface",
+    ]
+    effect    = "Allow"
+    resources = [
+      "arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:instance/i-*",
+      aws_network_interface.this-controlplane.arn,
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/Name"
+      values   = ["${var.aws.default_tags.tags["Name"]}-controlplane" ]
+    }
+  }
+  statement {
     sid = "ssm"
     actions = [
       "ssm:ListAssociations",

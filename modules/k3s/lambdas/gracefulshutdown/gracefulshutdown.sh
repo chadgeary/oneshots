@@ -3,6 +3,7 @@
 EC2_METADATA() {
   METADATA_TOKEN="$(curl -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' http://169.254.169.254/latest/api/token)"
   INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/instance-id)
+  INSTANCE_IP=$(curl -s -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/local-ipv4)
   INSTANCE_REGION=$(curl -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/placement/region)
 }
 
@@ -28,19 +29,20 @@ ETCD_SNAPSHOT() {
 
 NODE_DRAIN() {
   KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl \
-    drain "$NODE_NAME" \
+    drain "$INSTANCE_IP" \
+    --delete-emptydir-data \
     --force \
-    --grace-period=60 \
+    --grace-period=30 \
     --ignore-daemonsets
 }
 
 K3S_KILL() {
   KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl \
-    delete node "$NODE_NAME"
+    delete node "$INSTANCE_IP"
   /usr/local/bin/k3s-killall.sh
 }
 
-UNMOUNT_ETCD() {
+UNMOUNT_VOL() {
   umount /var/lib/rancher/k3s
   aws ec2 detach-volume \
     --device "xvdc" \
@@ -50,6 +52,12 @@ UNMOUNT_ETCD() {
   until [ ! -e "/dev/xvdc" ]; do
     sleep 1
   done
+}
+
+DETACH_ENI() {
+  ATTACHMENT_ID=$(aws ec2 describe-network-interfaces --filters Name=private-ip-address,Values="$PRIVATE_IP" --query 'NetworkInterfaces[0].Attachment.AttachmentId' --output text)
+  aws ec2 detach-network-interface \
+    --attachment-id $ATTACHMENT_ID
 }
 
 ASG_NOTIFY() {
@@ -77,7 +85,8 @@ INSTANCE_NAME
 ETCD_SNAPSHOT
 NODE_DRAIN
 K3S_KILL
-UNMOUNT_ETCD
+UNMOUNT_VOL
+DETACH_ENI
 if [ "$EVENT_TYPE" == "lifecyclehook" ]; then
   ASG_NOTIFY &
 elif [ "$EVENT_TYPE" == "spotinterruption" ]; then

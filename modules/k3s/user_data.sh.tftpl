@@ -4,6 +4,7 @@ EC2_METADATA() {
   METADATA_TOKEN="$(curl -s -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' http://169.254.169.254/latest/api/token)"
   INSTANCE_ARCH=$(if [ "$(uname -m)" == "x86_64" ]; then echo "amd64"; else echo "arm64"; fi)
   INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/instance-id)
+  INSTANCE_IP=$(curl -s -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/local-ipv4)
   INSTANCE_REGION=$(curl -s -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/placement/region)
   INSTANCE_TYPE=$(curl -s -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/instance-type)
   INSTANCE_ZONE=$(curl -s -H "X-aws-ec2-metadata-token: $METADATA_TOKEN" -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
@@ -16,12 +17,12 @@ EC2_METADATA() {
 }
 
 MOUNT_VOL() {
-  aws ec2 attach-volume \
-    --device "xvdc" \
-    --instance-id "$INSTANCE_ID" \
-    --volume-id "${VOLUME}"
 
   until [ -e "/dev/xvdc" ]; do
+    aws ec2 attach-volume \
+      --device "xvdc" \
+      --instance-id "$INSTANCE_ID" \
+      --volume-id "${VOLUME}"
     sleep 1
   done
 
@@ -33,7 +34,19 @@ MOUNT_VOL() {
   fi
 
   install -Dd -m=0700 /var/lib/rancher/k3s
-  mount /dev/$BLOCK_DEVICE /var/lib/rancher/k3s
+  mount "/dev/$BLOCK_DEVICE" /var/lib/rancher/k3s
+}
+
+ATTACH_ENI() {
+  until ip link show "${INTERFACE_ID}"; do
+    aws ec2 attach-network-interface \
+      --device-index 1 \
+      --instance-id "$INSTANCE_ID" \
+      --network-interface-id "${INTERFACE_ID}"
+    sleep 1
+  done
+
+  LINK_ID=$(ip link show "${INTERFACE_ID}" | awk -F': ' 'NR==1 { print $2 }')
 }
 
 ENSURE_DIRS() {
@@ -48,6 +61,7 @@ ENSURE_DIRS() {
 SET_ENV_FILES() {
   cat >/opt/k3s.env <<EOF
 BUCKET="${BUCKET}"
+INTERFACE_ID="${INTERFACE_ID}"
 NAME="${NAME}"
 PRIVATE_IP="${PRIVATE_IP}"
 PUBLIC_IP="${PUBLIC_IP}"
@@ -90,10 +104,16 @@ K3S_S3_COPY() {
 }
 
 K3S_INSTALL() {
+  if [ -f "/var/lib/rancher/k3s/server/db/etcd/name" ]; then
+    INSTALL_K3S_SKIP_DOWNLOAD=true /usr/local/bin/install.sh \
+      server \
+      --cluster-reset
+  fi
+
   INSTALL_K3S_SKIP_DOWNLOAD=true /usr/local/bin/install.sh \
     server \
-    --advertise-address "${PRIVATE_IP}" \
-    --bind-address "${PRIVATE_IP}" \
+    --advertise-address "$INSTANCE_IP" \
+    --bind-address "0.0.0.0" \
     --cluster-cidr=172.19.0.0/16 \
     --cluster-dns=172.20.0.10 \
     --cluster-init \
@@ -104,12 +124,13 @@ K3S_INSTALL() {
     --kube-apiserver-arg api-audiences="${NAME}" \
     --kube-apiserver-arg service-account-issuer=https://s3."$INSTANCE_REGION".amazonaws.com/"${NAME}"/oidc \
     --kube-apiserver-arg service-account-jwks-uri=https://s3."$INSTANCE_REGION".amazonaws.com/"${NAME}"/oidc/openid/v1/jwks \
-    --node-ip "${PRIVATE_IP}" \
+    --node-external-ip "${PRIVATE_IP}" \
+    --node-ip "$INSTANCE_IP" \
     --node-label node.kubernetes.io/instance-type="$INSTANCE_TYPE" \
     --node-label node.kubernetes.io/id="$INSTANCE_ID" \
     --node-label topology.kubernetes.io/region="$INSTANCE_REGION" \
     --node-label topology.kubernetes.io/zone="$INSTANCE_ZONE" \
-    --node-name "${PRIVATE_IP}" \
+    --node-name "$INSTANCE_IP" \
     --resolv-conf /etc/rancher/k3s/resolv.conf \
     --service-cidr=172.20.0.0/16 \
     --tls-san=controlplane."${NAME}".internal \
@@ -158,9 +179,9 @@ K3S_NEW_INSTALL() {
 
 EC2_METADATA
 MOUNT_VOL
+ATTACH_ENI
 ENSURE_DIRS
 SET_ENV_FILES
-ATTACH_ENI
 K3S_S3_COPY
 K3S_INSTALL
 if [ -n "$NEW_INSTALL" ]; then K3S_NEW_INSTALL; fi
