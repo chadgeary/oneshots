@@ -28,18 +28,16 @@ NODE_DRAIN() {
     --force \
     --grace-period=30 \
     --ignore-daemonsets
-}
-
-K3S_KILL() {
-  kubectl get node -o name "$INSTANCE_IP" | \
-    xargs -I {} kubectl patch {} -p '{"metadata":{"finalizers":[]}}' --type=merge
-  kubectl \
-    delete node "$INSTANCE_IP" &
   /usr/local/bin/k3s-killall.sh
 }
 
 UNMOUNT_VOL() {
-  umount /var/lib/rancher/k3s
+  echo "$INSTANCE_IP" > /var/lib/rancher/k3s/node.old
+
+  until umount /var/lib/rancher/k3s; do
+    sleep 1
+  done
+
   aws ec2 detach-volume \
     --device "xvdc" \
     --instance-id "$INSTANCE_ID" \
@@ -57,7 +55,6 @@ DETACH_ENI() {
 }
 
 ASG_NOTIFY() {
-  sleep 5
   aws autoscaling complete-lifecycle-action \
     --auto-scaling-group-name "$NAME-controlplane" \
     --instance-id "$INSTANCE_ID" \
@@ -67,23 +64,22 @@ ASG_NOTIFY() {
 }
 
 ASG_DETACH() {
-  sleep 5
   aws autoscaling detach-instances \
     --instance-ids "$INSTANCE_ID" \
     --auto-scaling-group-name "$NAME-controlplane" \
     --no-should-decrement-desired-capacity
-  shutdown -h now
+  aws ec2 terminate-instances \
+    --instance-ids "$INSTANCE_ID"
 }
 
 EC2_METADATA
 GET_ENV
 ETCD_SNAPSHOT
 NODE_DRAIN
-K3S_KILL
 UNMOUNT_VOL
 DETACH_ENI
 if [ "$EVENT_TYPE" == "lifecyclehook" ]; then
-  ASG_NOTIFY &
+  ASG_NOTIFY
 elif [ "$EVENT_TYPE" == "spotinterruption" ]; then
-  ASG_DETACH &
+  ASG_DETACH
 fi

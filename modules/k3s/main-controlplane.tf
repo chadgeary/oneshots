@@ -80,12 +80,14 @@ resource "aws_launch_template" "this-controlplane" {
 }
 
 resource "aws_autoscaling_group" "this-controlplane" {
-  capacity_rebalance  = false
-  desired_capacity    = 1
-  max_size            = 1
-  min_size            = 1
-  name                = "${var.aws.default_tags.tags["Name"]}-controlplane"
-  vpc_zone_identifier = [for each in var.vpc.subnets.private : each.id]
+  capacity_rebalance        = false
+  default_instance_warmup   = 60
+  desired_capacity          = 1
+  health_check_grace_period = 60
+  max_size                  = 1
+  min_size                  = 1
+  name                      = "${var.aws.default_tags.tags["Name"]}-controlplane"
+  vpc_zone_identifier       = [for each in var.vpc.subnets.private : each.id]
   mixed_instances_policy {
     instances_distribution {
       on_demand_base_capacity                  = 0

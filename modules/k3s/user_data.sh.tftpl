@@ -177,6 +177,23 @@ K3S_NEW_INSTALL() {
   done
 }
 
+DELETE_OLD_NODE() {
+  KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+  OLD_NODE="$(cat /var/lib/rancher/k3s/node.old)"
+
+  if [ "$INSTANCE_IP" == "$OLD_NODE" ];
+    echo "INFO skipping delete old node"
+  else
+    kubectl get node -o name "$OLD_NODE" | \
+      xargs -I {} kubectl patch {} -p '{"metadata":{"finalizers":[]}}' --type=merge
+
+    kubectl \
+      delete node "$OLD_NODE"
+  fi
+
+  rm -f /var/lib/rancher/k3s/node.old
+}
+
 EC2_METADATA
 MOUNT_VOL
 ATTACH_ENI
@@ -185,3 +202,4 @@ SET_ENV_FILES
 K3S_S3_COPY
 K3S_INSTALL
 if [ -n "$NEW_INSTALL" ]; then K3S_NEW_INSTALL; fi
+DELETE_OLD_NODE

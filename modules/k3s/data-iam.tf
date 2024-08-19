@@ -70,6 +70,7 @@ data "aws_iam_policy_document" "this-controlplane" {
     actions = [
       "ec2:AttachNetworkInterface",
       "ec2:DetachNetworkInterface",
+      "ec2:TerminateInstances",
     ]
     effect = "Allow"
     resources = [
