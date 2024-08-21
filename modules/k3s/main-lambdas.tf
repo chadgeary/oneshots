@@ -1,7 +1,7 @@
 locals {
   lambdas = toset([
     "files",
-    "oidc",
+    "watch",
     "gracefulshutdown",
   ])
 }
