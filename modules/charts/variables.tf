@@ -25,11 +25,3 @@ variable "cluster" {
     })
   })
 }
-
-# variable "nat" {
-#   type = object({
-#     eip = map(object({
-#       public_ip = string
-#     }))
-#   })
-# }

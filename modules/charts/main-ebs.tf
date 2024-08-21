@@ -17,7 +17,7 @@ resource "helm_release" "this" {
       env = [
         {
           name  = "AWS_REGION"
-          value = "us-east-2"
+          value = var.aws.region.name
         },
         {
           name  = "AWS_ROLE_ARN"
@@ -55,7 +55,7 @@ resource "helm_release" "this" {
       env = [
         {
           name  = "AWS_REGION"
-          value = "us-east-2"
+          value = var.aws.region.name
         }
       ]
       hostNetwork = true
