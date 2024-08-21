@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "this" {
-  bucket        = "${var.aws.default_tags.tags["Name"]}-k3sfiles"
+  bucket        = "${var.aws.default_tags.tags["Name"]}-cluster"
   force_destroy = true
 }
 
@@ -38,4 +38,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
     }
   }
   depends_on = [aws_s3_bucket_versioning.this]
+}
+
+resource "aws_iam_openid_connect_provider" "this" {
+  url             = "https://${aws_s3_bucket.this.id}.s3.${var.aws.region.name}.amazonaws.com/controlplane/oidc"
+  client_id_list  = [var.aws.default_tags.tags["Name"]]
+  thumbprint_list = [chomp(lower(data.aws_s3_object.this["oidc/ca.thumbprint"].body))]
 }

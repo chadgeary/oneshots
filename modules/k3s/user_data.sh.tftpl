@@ -122,8 +122,8 @@ K3S_INSTALL() {
     --disable=traefik \
     --flannel-iface="$LINK_ID" \
     --kube-apiserver-arg api-audiences="${NAME}" \
-    --kube-apiserver-arg service-account-issuer=https://s3."$INSTANCE_REGION".amazonaws.com/"${NAME}"/oidc \
-    --kube-apiserver-arg service-account-jwks-uri=https://s3."$INSTANCE_REGION".amazonaws.com/"${NAME}"/oidc/openid/v1/jwks \
+    --kube-apiserver-arg service-account-issuer=https://"${BUCKET}".s3."$INSTANCE_REGION".amazonaws.com/controlplane/oidc \
+    --kube-apiserver-arg service-account-jwks-uri=https://"${BUCKET}".s3."$INSTANCE_REGION".amazonaws.com/controlplane/oidc/openid/v1/jwks \
     --node-external-ip "${PRIVATE_IP}" \
     --node-ip "$INSTANCE_IP" \
     --node-label node.kubernetes.io/instance-type="$INSTANCE_TYPE" \
@@ -152,7 +152,7 @@ K3S_NEW_INSTALL() {
   until [ -f /etc/rancher/k3s/k3s.yaml ]; do
     sleep 1
   done
-  sed 's#https://.*:6443#https://'"${PUBLIC_IP}"':6443#' /etc/rancher/k3s/k3s.yaml | aws s3 cp - s3://"${BUCKET}"/controlplane/config
+  sed 's#https://.*:6443#https://'"${PUBLIC_IP}"':6443#' /etc/rancher/k3s/k3s.yaml | aws s3 cp - s3://"${BUCKET}"/controlplane/config --content-type text/plain
 
   for OIDC_DIR in \
     /opt/k3s/oidc/.well-known \
@@ -173,8 +173,33 @@ K3S_NEW_INSTALL() {
     .well-known/openid-configuration \
     openid/v1/jwks
   do
-    aws s3 cp "/opt/k3s/oidc/$OIDC_FILE" "s3://${BUCKET}/controlplane/oidc/$OIDC_FILE"
+    aws s3 cp \
+      "/opt/k3s/oidc/$OIDC_FILE" \
+      "s3://${BUCKET}/controlplane/oidc/$OIDC_FILE" \
+      --content-type text/plain
+
+    aws s3api put-object-tagging \
+      --bucket "${BUCKET}" \
+      --key "controlplane/oidc/$OIDC_FILE" \
+      --tagging TagSet='[{Key=public,Value=true}]'
   done
+}
+
+DELETE_OLD_NODE() {
+  KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+  OLD_NODE="$(cat /var/lib/rancher/k3s/node.old)"
+
+  if [ "$INSTANCE_IP" == "$OLD_NODE" ]; then
+    echo "INFO skipping delete old node"
+  else
+    kubectl get node -o name "$OLD_NODE" | \
+      xargs -I {} kubectl patch {} -p '{"metadata":{"finalizers":[]}}' --type=merge
+
+    kubectl \
+      delete node "$OLD_NODE"
+  fi
+
+  rm -f /var/lib/rancher/k3s/node.old
 }
 
 EC2_METADATA
@@ -185,3 +210,4 @@ SET_ENV_FILES
 K3S_S3_COPY
 K3S_INSTALL
 if [ -n "$NEW_INSTALL" ]; then K3S_NEW_INSTALL; fi
+DELETE_OLD_NODE

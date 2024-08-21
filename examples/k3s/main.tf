@@ -20,3 +20,9 @@ module "k3s" {
   nat    = module.nat.this
   vpc    = module.vpc.this
 }
+
+module "charts" {
+  source  = "../../modules/charts"
+  aws     = module.aws.this
+  cluster = module.k3s.this
+}

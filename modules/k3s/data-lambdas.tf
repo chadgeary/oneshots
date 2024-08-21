@@ -12,7 +12,7 @@ EOF
 }
 
 # tflint-ignore: terraform_unused_declarations
-data "aws_lambda_invocation" "this-oidc" {
-  function_name = aws_lambda_function.this-lambdas["oidc"].function_name
+data "aws_lambda_invocation" "this-watch" {
+  function_name = aws_lambda_function.this-lambdas["watch"].function_name
   input         = ""
 }
