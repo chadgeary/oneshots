@@ -7,7 +7,7 @@ resource "aws_iam_role" "this-ebs" {
   }
 }
 
-resource "helm_release" "this" {
+resource "helm_release" "this-ebs" {
   chart            = "https://github.com/kubernetes-sigs/aws-ebs-csi-driver/releases/download/helm-chart-aws-ebs-csi-driver-2.33.0/aws-ebs-csi-driver-2.33.0.tgz"
   create_namespace = true
   name             = "aws-ebs-csi-driver"
@@ -34,6 +34,11 @@ resource "helm_release" "this" {
           "eks.amazonaws.com/role-arn" = aws_iam_role.this-ebs.arn
         }
       }
+      tolerations = [{
+        effect   = "NoSchedule"
+        key      = "node-role.kubernetes.io/control-plane"
+        operator = "Exists"
+      }]
       volumeMounts = [{
         mountPath = "/var/run/secrets/kubernetes.io/serviceaccount/"
         name      = "serviceaccount"

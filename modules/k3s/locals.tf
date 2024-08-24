@@ -1,5 +1,5 @@
 locals {
-  image_id       = length(data.aws_ec2_instance_type_offerings.this-arm64.instance_types) > 0 ? var.aws.amis["arm64"].id : var.aws.amis["amd64"].id
+  ami            = length(data.aws_ec2_instance_type_offerings.this-arm64.instance_types) > 0 ? var.aws.amis["minimal-arm64"] : var.aws.amis["minimal-amd64"]
   instance_types = length(data.aws_ec2_instance_type_offerings.this-arm64.instance_types) > 0 ? sort(data.aws_ec2_instance_type_offerings.this-arm64.instance_types) : sort(data.aws_ec2_instance_type_offerings.this-amd64.instance_types)
   files = {
     K3S_BIN_ARM64 = {
@@ -29,6 +29,14 @@ locals {
     K3S_TAR_AMD64 = {
       url    = "https://github.com/k3s-io/k3s/releases/download/v${local.versions["K3S"]}/k3s-airgap-images-amd64.tar.zst"
       prefix = "files/amd64/images.tar.zst"
+    }
+    SSM_RPM_ARM64 = {
+      url    = "https://s3.${var.aws.region.name}.amazonaws.com/amazon-ssm-${var.aws.region.name}/latest/linux_arm64/amazon-ssm-agent.rpm"
+      prefix = "files/arm64/amazon-ssm-agent.rpm"
+    }
+    SSM_RPM_AMD64 = {
+      url    = "https://s3.${var.aws.region.name}.amazonaws.com/amazon-ssm-${var.aws.region.name}/latest/linux_amd64/amazon-ssm-agent.rpm"
+      prefix = "files/amd64/amazon-ssm-agent.rpm"
     }
   }
   versions = {

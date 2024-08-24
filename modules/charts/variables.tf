@@ -25,3 +25,9 @@ variable "cluster" {
     })
   })
 }
+
+variable "install" {
+  type = object({
+    name = string
+  })
+}

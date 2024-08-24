@@ -1,7 +1,8 @@
 variable "aws" {
   type = object({
     amis = map(object({
-      id = string
+      id               = string
+      root_device_name = string
     }))
     availability_zones = object({
       names = list(string)

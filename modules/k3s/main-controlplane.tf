@@ -55,8 +55,14 @@ resource "aws_ebs_volume" "this-controlplane" {
 }
 
 resource "aws_launch_template" "this-controlplane" {
-  image_id = local.image_id
+  image_id = local.ami.id
   name     = "${var.aws.default_tags.tags["Name"]}-controlplane"
+  block_device_mappings {
+    device_name = local.ami.root_device_name
+    ebs {
+      volume_size = 2
+    }
+  }
   iam_instance_profile {
     name = aws_iam_instance_profile.this-controlplane.name
   }
@@ -65,6 +71,9 @@ resource "aws_launch_template" "this-controlplane" {
     http_put_response_hop_limit = 1
     http_tokens                 = "required"
     instance_metadata_tags      = "disabled"
+  }
+  network_interfaces {
+    network_interface_id = aws_network_interface.this-controlplane.id
   }
   user_data = base64encode(templatefile(
     "${path.module}/user_data.sh.tftpl", {
@@ -76,10 +85,10 @@ resource "aws_launch_template" "this-controlplane" {
       VOLUME       = aws_ebs_volume.this-controlplane.id
     }
   ))
-  vpc_security_group_ids = [aws_security_group.this-controlplane.id]
 }
 
 resource "aws_autoscaling_group" "this-controlplane" {
+  availability_zones        = [lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["availability_zone"]]
   capacity_rebalance        = false
   default_instance_warmup   = 60
   desired_capacity          = 1
@@ -87,7 +96,6 @@ resource "aws_autoscaling_group" "this-controlplane" {
   max_size                  = 1
   min_size                  = 1
   name                      = "${var.aws.default_tags.tags["Name"]}-controlplane"
-  vpc_zone_identifier       = [for each in var.vpc.subnets.private : each.id]
   mixed_instances_policy {
     instances_distribution {
       on_demand_base_capacity                  = 0

@@ -25,4 +25,11 @@ module "charts" {
   source  = "../../modules/charts"
   aws     = module.aws.this
   cluster = module.k3s.this
+  install = var.install
+}
+
+resource "local_sensitive_file" "this" {
+  content         = module.k3s.this.files["config"].body
+  file_permission = "0600"
+  filename        = "${path.root}/config"
 }

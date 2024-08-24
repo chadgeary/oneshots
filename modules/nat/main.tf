@@ -65,8 +65,14 @@ resource "aws_eip" "this" {
 
 resource "aws_launch_template" "this" {
   for_each = var.vpc.subnets.public
-  image_id = local.image_id
+  image_id = local.ami.id
   name     = "${var.aws.default_tags.tags["Name"]}-nat-${each.value.availability_zone}"
+  block_device_mappings {
+    device_name = local.ami.root_device_name
+    ebs {
+      volume_size = 2
+    }
+  }
   iam_instance_profile {
     name = aws_iam_instance_profile.this.name
   }
@@ -79,17 +85,19 @@ resource "aws_launch_template" "this" {
   network_interfaces {
     network_interface_id = aws_network_interface.this[each.key].id
   }
-  user_data = base64encode(local.user_data)
+  user_data = base64encode(templatefile("${path.module}/user_data.sh.tftpl", {}))
 }
 
 resource "aws_autoscaling_group" "this" {
-  for_each           = var.vpc.subnets.public
-  availability_zones = [var.vpc.subnets.public[each.key].availability_zone]
-  capacity_rebalance = false
-  desired_capacity   = 1
-  max_size           = 1
-  min_size           = 1
-  name               = "${var.aws.default_tags.tags["Name"]}-nat-${each.value.availability_zone}"
+  for_each                  = var.vpc.subnets.public
+  availability_zones        = [var.vpc.subnets.public[each.key].availability_zone]
+  capacity_rebalance        = false
+  default_instance_warmup   = 60
+  desired_capacity          = 1
+  health_check_grace_period = 60
+  max_size                  = 1
+  min_size                  = 1
+  name                      = "${var.aws.default_tags.tags["Name"]}-nat-${each.value.availability_zone}"
   mixed_instances_policy {
     instances_distribution {
       on_demand_base_capacity                  = 0

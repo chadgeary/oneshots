@@ -48,12 +48,6 @@ UNMOUNT_VOL() {
   done
 }
 
-DETACH_ENI() {
-  ATTACHMENT_ID=$(aws ec2 describe-network-interfaces --filters Name=private-ip-address,Values="$PRIVATE_IP" --query 'NetworkInterfaces[0].Attachment.AttachmentId' --output text)
-  aws ec2 detach-network-interface \
-    --attachment-id "$ATTACHMENT_ID"
-}
-
 ASG_NOTIFY() {
   aws autoscaling complete-lifecycle-action \
     --auto-scaling-group-name "$NAME-controlplane" \
@@ -68,8 +62,12 @@ ASG_DETACH() {
     --instance-ids "$INSTANCE_ID" \
     --auto-scaling-group-name "$NAME-controlplane" \
     --no-should-decrement-desired-capacity
+}
+
+SHUTDOWN_NOW() {
   aws ec2 terminate-instances \
     --instance-ids "$INSTANCE_ID"
+  shutdown -h now &
 }
 
 EC2_METADATA
@@ -77,9 +75,9 @@ GET_ENV
 ETCD_SNAPSHOT
 NODE_DRAIN
 UNMOUNT_VOL
-DETACH_ENI
 if [ "$EVENT_TYPE" == "lifecyclehook" ]; then
   ASG_NOTIFY
 elif [ "$EVENT_TYPE" == "spotinterruption" ]; then
   ASG_DETACH
 fi
+SHUTDOWN_NOW

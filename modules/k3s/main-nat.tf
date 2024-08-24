@@ -16,11 +16,15 @@ else
   iptables -t nat -A PREROUTING -s ${cidrsubnet(var.vpc.vpc.cidr_block, 1, 0)} -j ACCEPT
 fi
 
-for PORT_FORWARD in 443 6443 80; do
-  if iptables -nL -t nat | grep --quiet '^DNAT.*tcp.*dpt:'"$PORT_FORWARD"''; then
-    echo "DNAT tcp $PORT_FORWARD exists, skipping"
+declare -a PORT_FORWARDS=("80:31080" "443:31443" "6443:6443")
+
+for PORT_FORWARD in "$${PORT_FORWARDS[@]}"; do
+  SRC_PORT=$(echo "$PORT_FORWARD" | awk -F':' '{print $1}' )
+  DST_PORT=$(echo "$PORT_FORWARD" | awk -F':' '{print $2}' )
+  if iptables -nL -t nat | grep --quiet '^DNAT.*tcp.*dpt:'"$DST_PORT"''; then
+    echo "DNAT tcp $DST_PORT exists, skipping"
   else
-    iptables -t nat -A PREROUTING -p tcp --dport $PORT_FORWARD -j DNAT --to-destination ${aws_network_interface.this-controlplane.private_ip}:$PORT_FORWARD
+    iptables -t nat -A PREROUTING -p tcp --dport $SRC_PORT -j DNAT --to-destination ${aws_network_interface.this-controlplane.private_ip}:$DST_PORT
   fi
 done
 EOF
@@ -32,7 +36,7 @@ EOF
 }
 
 resource "aws_vpc_security_group_ingress_rule" "this-controlplane-nat" {
-  for_each                     = toset(["80", "443", "6443"])
+  for_each                     = toset(["31080", "31443", "6443"])
   from_port                    = tonumber(each.value)
   ip_protocol                  = "tcp"
   referenced_security_group_id = var.nat.security_group.id
