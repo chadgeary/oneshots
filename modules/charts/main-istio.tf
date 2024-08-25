@@ -31,6 +31,9 @@ resource "helm_release" "this-istio-istiod" {
       cni = {
         enabled = true
       }
+      env = {
+        PILOT_ENABLE_AMBIENT = "true"
+      }
       replicaCount = 1
       resources = {
         limits = {
@@ -51,6 +54,26 @@ resource "helm_release" "this-istio-istiod" {
     })
   ]
   depends_on = [helm_release.this-istio-cni]
+}
+
+resource "helm_release" "this-istio-ztunnel" {
+  chart            = "https://istio-release.storage.googleapis.com/charts/ztunnel-1.23.0.tgz"
+  create_namespace = true
+  name             = "istio-ztunnel"
+  namespace        = "istio-system"
+  values = [yamlencode({
+    resources = {
+      limits = {
+        cpu    = "1"
+        memory = "200Mi"
+      }
+      requests = {
+        cpu    = "50m"
+        memory = "50Mi"
+      }
+    }
+  })]
+  depends_on = [helm_release.this-istio-istiod]
 }
 
 resource "helm_release" "this-istio-gateway" {
@@ -102,5 +125,5 @@ resource "helm_release" "this-istio-gateway" {
     }]
     })
   ]
-  depends_on = [helm_release.this-istio-istiod]
+  depends_on = [helm_release.this-istio-ztunnel]
 }

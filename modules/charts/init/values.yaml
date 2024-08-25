@@ -1,5 +1,4 @@
 host: ""
-istio-injection: ""
 namespace: ""
 service: ""
 port: 0

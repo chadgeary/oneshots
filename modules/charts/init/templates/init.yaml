@@ -4,7 +4,7 @@ kind: Namespace
 metadata:
   labels:
     kubernetes.io/metadata.name: {{ .Values.namespace }}
-    istio-injection: {{ index .Values "istio-injection" }}
+    istio.io/dataplane-mode: {{ index .Values "dataplane-mode" }}
   name: {{ .Values.namespace }}
 ---
 apiVersion: networking.istio.io/v1
