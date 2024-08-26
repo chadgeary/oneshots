@@ -1,14 +1,16 @@
-# resource "helm_release" "this-init-grafana" {
-#   chart            = "${path.module}/init"
-#   name             = "grafana-init"
+# resource "helm_release" "this-grafana-gateway" {
+#   chart            = "${path.module}/gateway"
+#   name             = "grafana-gateway"
 #   namespace        = "kube-system"
 #   values = [yamlencode({
-#     host = "grafana.${var.install.name}.internal"
 #     dataplane-mode = "ambient"
+#     host = "grafana.${var.install.name}.duckdns.org"
+#     name = var.install.name
 #     namespace = "grafana"
-#     service = "grafana"
 #     port = 80
+#     service = "grafana"
 #   })]
+#   depends_on = [ helm_release.this-istio-certificate ]
 # }
 
 # resource "helm_release" "this-grafana" {
@@ -22,5 +24,8 @@
 #         operator = "Exists"
 #       }]
 #   })]
-#   depends_on = [ helm_release.this-init-grafana ]
+#   depends_on = [ 
+#     helm_release.this-ebs,
+#     helm_release.this-grafana-gateway,
+#   ]
 # }

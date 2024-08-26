@@ -5,9 +5,11 @@ variable "install" {
       cidr  = string
       zones = number
     })
+    duckdnstoken = string
   })
   default = {
-    name = "oneshots-k3s"
+    duckdnstoken = ""
+    name         = "a-unique-name"
     vpc = {
       cidr  = "10.100.0.0/20"
       zones = 1

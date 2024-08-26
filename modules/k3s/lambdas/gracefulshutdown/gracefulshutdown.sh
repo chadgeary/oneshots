@@ -50,10 +50,10 @@ UNMOUNT_VOL() {
 
 ASG_NOTIFY() {
   aws autoscaling complete-lifecycle-action \
-    --auto-scaling-group-name "$NAME-controlplane" \
+    --auto-scaling-group-name "$NAME-$ROLE" \
     --instance-id "$INSTANCE_ID" \
     --lifecycle-action-result "CONTINUE" \
-    --lifecycle-hook-name "$NAME-controlplane" \
+    --lifecycle-hook-name "$NAME-interrupt" \
     --region "$INSTANCE_REGION"
 }
 
@@ -64,20 +64,40 @@ ASG_DETACH() {
     --no-should-decrement-desired-capacity
 }
 
+ASG_ACTION() {
+  if [ "$EVENT_TYPE" == "lifecyclehook" ]; then
+    aws autoscaling complete-lifecycle-action \
+      --auto-scaling-group-name "$NAME-$ROLE" \
+      --instance-id "$INSTANCE_ID" \
+      --lifecycle-action-result "CONTINUE" \
+      --lifecycle-hook-name "$NAME-interrupt" \
+      --region "$INSTANCE_REGION"
+  elif [ "$EVENT_TYPE" == "spotinterruption" ]; then
+    aws autoscaling detach-instances \
+      --instance-ids "$INSTANCE_ID" \
+      --auto-scaling-group-name "$NAME-controlplane" \
+      --no-should-decrement-desired-capacity
+  fi
+}
+
 SHUTDOWN_NOW() {
-  aws ec2 terminate-instances \
-    --instance-ids "$INSTANCE_ID"
+  if [ "$ROLE" == "controlplane" ]; then 
+    aws ec2 terminate-instances \
+      --instance-ids "$INSTANCE_ID"
+  fi
   shutdown -h now &
 }
 
-EC2_METADATA
-GET_ENV
-ETCD_SNAPSHOT
-NODE_DRAIN
-UNMOUNT_VOL
-if [ "$EVENT_TYPE" == "lifecyclehook" ]; then
-  ASG_NOTIFY
-elif [ "$EVENT_TYPE" == "spotinterruption" ]; then
-  ASG_DETACH
+if [ "$ROLE" == "controlplane" ]; then 
+  EC2_METADATA
+  GET_ENV
+  ETCD_SNAPSHOT
+  NODE_DRAIN
+  UNMOUNT_VOL
+else
+  EC2_METADATA
+  GET_ENV
 fi
+
+ASG_ACTION
 SHUTDOWN_NOW

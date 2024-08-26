@@ -127,3 +127,17 @@ resource "helm_release" "this-istio-gateway" {
   ]
   depends_on = [helm_release.this-istio-ztunnel]
 }
+
+resource "helm_release" "this-istio-certificate" {
+  chart     = "${path.module}/certificate"
+  name      = "istio-cert"
+  namespace = "istio-system"
+  values = [yamlencode({
+    dnsName = "*.${var.install.name}.duckdns.org"
+    name    = var.install.name
+  })]
+  depends_on = [
+    helm_release.this-cert-manager,
+    helm_release.this-istio-istiod,
+  ]
+}

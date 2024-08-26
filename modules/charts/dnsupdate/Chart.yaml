@@ -1,0 +1,4 @@
+apiVersion: v2
+name: dnsupdate
+version: 1.0.1
+description: updates dns on duckdns.org

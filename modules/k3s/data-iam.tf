@@ -58,25 +58,12 @@ data "aws_iam_policy_document" "this-controlplane" {
     resources = ["*"]
   }
   statement {
-    sid = "eni1"
+    sid = "ec2"
     actions = [
-      "ec2:DescribeNetworkInterfaces",
-    ]
-    effect    = "Allow"
-    resources = ["*"]
-  }
-  statement {
-    sid = "eni2"
-    actions = [
-      "ec2:AttachNetworkInterface",
-      "ec2:DetachNetworkInterface",
       "ec2:TerminateInstances",
     ]
-    effect = "Allow"
-    resources = [
-      "arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:instance/i-*",
-      aws_network_interface.this-controlplane.arn,
-    ]
+    effect    = "Allow"
+    resources = ["arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:instance/i-*"]
     condition {
       test     = "StringEquals"
       variable = "aws:ResourceTag/Name"
@@ -132,7 +119,7 @@ data "aws_iam_policy_document" "this-controlplane" {
   }
 }
 
-data "aws_iam_policy_document" "this-controlplane-autoscaling" {
+data "aws_iam_policy_document" "this-autoscaling" {
   version = "2012-10-17"
   statement {
     sid = "sns"
@@ -140,7 +127,7 @@ data "aws_iam_policy_document" "this-controlplane-autoscaling" {
       "sns:Publish"
     ]
     effect    = "Allow"
-    resources = [aws_sns_topic.this-controlplane-autoscaling.arn]
+    resources = [aws_sns_topic.this-autoscaling.arn]
   }
 }
 
@@ -155,81 +142,8 @@ data "aws_iam_policy_document" "this-s3" {
       "${aws_s3_bucket.this.arn}/*",
     ]
     principals {
-      type = "AWS"
-      identifiers = [
-        var.aws.session_context.issuer_arn,
-      ]
-    }
-  }
-  statement {
-    sid    = "files"
-    effect = "Allow"
-    actions = [
-      "s3:AbortMultipartUpload",
-      "s3:GetBucketLocation",
-      "s3:GetObjectAcl",
-      "s3:GetObjectTagging",
-      "s3:ListBucket",
-      "s3:ListBucketMultipartUploads",
-      "s3:ListMultipartUploadParts",
-      "s3:PutObject",
-      "s3:PutObjectAcl",
-    ]
-    resources = [
-      aws_s3_bucket.this.arn,
-      "${aws_s3_bucket.this.arn}/files/*",
-    ]
-    principals {
-      type = "AWS"
-      identifiers = [
-        aws_iam_role.this-lambdas["files"].arn,
-      ]
-    }
-  }
-  statement {
-    sid    = "ec2"
-    effect = "Allow"
-    actions = [
-      "s3:AbortMultipartUpload",
-      "s3:GetBucketLocation",
-      "s3:GetObject",
-      "s3:GetObjectAcl",
-      "s3:GetObjectTagging",
-      "s3:GetObjectVersion",
-      "s3:ListBucket",
-      "s3:ListBucketMultipartUploads",
-      "s3:ListMultipartUploadParts",
-      "s3:PutObject",
-      "s3:PutObjectTagging",
-      "s3:PutObjectVersionTagging",
-    ]
-    resources = [
-      aws_s3_bucket.this.arn,
-      "${aws_s3_bucket.this.arn}/controlplane/*",
-    ]
-    principals {
-      type = "AWS"
-      identifiers = [
-        aws_iam_role.this-controlplane.arn,
-        # aws_iam_role.this-worker.arn,
-      ]
-    }
-  }
-  statement {
-    sid    = "watch"
-    effect = "Allow"
-    actions = [
-      "s3:GetObject",
-    ]
-    resources = [
-      aws_s3_bucket.this.arn,
-      "${aws_s3_bucket.this.arn}/controlplane/*"
-    ]
-    principals {
-      type = "AWS"
-      identifiers = [
-        aws_iam_role.this-lambdas["watch"].arn,
-      ]
+      type        = "AWS"
+      identifiers = [var.aws.session_context.issuer_arn]
     }
   }
   statement {
@@ -319,8 +233,81 @@ data "aws_iam_policy_document" "this-lambdas" {
       condition {
         test     = "StringEquals"
         variable = "ssm:resourceTag/Name"
-        values   = ["${var.aws.default_tags.tags["Name"]}-controlplane"]
+        values = [
+          "${var.aws.default_tags.tags["Name"]}-controlplane",
+          "${var.aws.default_tags.tags["Name"]}-worker"
+        ]
       }
     }
+  }
+}
+
+data "aws_iam_policy_document" "this-worker" {
+  version = "2012-10-17"
+  statement {
+    sid = "asg"
+    actions = [
+      "autoscaling:CompleteLifecycleAction",
+      "autoscaling:DetachInstances",
+    ]
+    effect = "Allow"
+    resources = [
+      "arn:${var.aws.partition.id}:autoscaling:${var.aws.region.name}:${var.aws.caller_identity.account_id}:autoScalingGroup:*:autoScalingGroupName/${var.aws.default_tags.tags["Name"]}-worker"
+    ]
+  }
+  statement {
+    sid = "ec2"
+    actions = [
+      "ec2:TerminateInstances",
+    ]
+    effect    = "Allow"
+    resources = ["arn:${var.aws.partition.id}:ec2:${var.aws.region.name}:${var.aws.caller_identity.account_id}:instance/i-*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/Name"
+      values   = ["${var.aws.default_tags.tags["Name"]}-worker"]
+    }
+  }
+  statement {
+    sid = "ecr"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:DescribeRepositories",
+      "ecr:GetAuthorizationToken",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:GetRepositoryPolicy",
+      "ecr:ListImages",
+    ]
+    effect    = "Allow"
+    resources = ["*"]
+  }
+  statement {
+    sid = "ssm"
+    actions = [
+      "ssm:ListAssociations",
+      "ssm:ListInstanceAssociations",
+      "ssm:UpdateAssociationStatus",
+      "ssm:UpdateInstanceAssociationStatus",
+      "ssm:UpdateInstanceInformation",
+      "ssmmessages:CreateControlChannel",
+      "ssmmessages:CreateDataChannel",
+      "ssmmessages:OpenControlChannel",
+      "ssmmessages:OpenDataChannel",
+    ]
+    effect    = "Allow"
+    resources = ["*"]
+  }
+  statement {
+    sid = "s3"
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion"
+    ]
+    resources = [
+      "${aws_s3_bucket.this.arn}/files/*",
+      "${aws_s3_bucket.this.arn}/controlplane/agent-token",
+    ]
+    effect = "Allow"
   }
 }

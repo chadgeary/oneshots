@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dnsupdate
+  labels:
+    app: dnsupdate
+spec:
+  template:
+    metadata:
+      labels:
+        app: dnsupdate
+    spec:
+      containers:
+      - name: duckdns
+        command:
+          - /opt/command
+        image: alpine/curl:8.8.0
+        env:
+        - name: PUBLIC_IP
+          value: {{ .Values.public_ip | quote }}
+        - name: SUBDOMAINS
+          value: {{ .Values.name | quote }}
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: cert-manager-webhook-duckdns
+              key: token
+        securityContext:
+          allowPrivilegeEscalation: true
+        volumeMounts:
+        - mountPath: /opt
+          name: command
+      restartPolicy: OnFailure
+      volumes:
+      - name: command
+        configMap:
+          name: dnsupdate
+          defaultMode: 0550
+          items:
+          - key: command
+            path: command

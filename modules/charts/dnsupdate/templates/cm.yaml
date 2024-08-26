@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dnsupdate
+data:
+  command: |
+    #!/usr/bin/env sh
+
+    echo "$(date) INFO detecting address"
+
+    DRESPONSE=$(curl -sS --max-time 60 "https://www.duckdns.org/update?domains=${SUBDOMAINS}&token=${TOKEN}&ip=${PUBLIC_IP}&verbose=true")
+    RESPONSE=$(echo "${DRESPONSE}" | awk 'NR==1')
+    IPCHANGE=$(echo "${DRESPONSE}" | awk 'NR==4')
+
+    if [[ "${RESPONSE}" = "OK" ]] && [[ "${IPCHANGE}" = "UPDATED" ]]; then
+      echo "$(date) INFO IP changed and updated - ${PUBLIC_IP}"
+    elif [[ "${RESPONSE}" = "OK" ]] && [[ "${IPCHANGE}" = "NOCHANGE" ]]; then
+        echo "$(date) INFO IP unchanged - ${PUBLIC_IP}"
+    else
+        echo "$(date) ERROR ${DRESPONSE}"
+        exit 1
+    fi

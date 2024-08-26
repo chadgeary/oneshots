@@ -28,6 +28,15 @@ variable "cluster" {
 
 variable "install" {
   type = object({
-    name = string
+    duckdnstoken = string
+    name         = string
+  })
+}
+
+variable "nat" {
+  type = object({
+    eip = map(object({
+      public_ip = string
+    }))
   })
 }

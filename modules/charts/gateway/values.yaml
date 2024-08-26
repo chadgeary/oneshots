@@ -1,4 +1,5 @@
 host: ""
+name: ""
 namespace: ""
 service: ""
 port: 0
