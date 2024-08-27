@@ -21,6 +21,7 @@ resource "aws_autoscaling_lifecycle_hook" "this-autoscaling" {
   name                    = "${var.aws.default_tags.tags["Name"]}-interrupt"
   notification_target_arn = aws_sns_topic.this-autoscaling.arn
   role_arn                = aws_iam_role.this-autoscaling.arn
+  depends_on              = [aws_autoscaling_group.this-controlplane, aws_autoscaling_group.this-worker]
 }
 
 resource "aws_sns_topic_subscription" "this-autoscaling" {

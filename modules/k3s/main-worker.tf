@@ -115,4 +115,5 @@ resource "aws_autoscaling_group" "this-worker" {
     value               = "owned"
     propagate_at_launch = true
   }
+  depends_on = [data.aws_s3_object.this]
 }

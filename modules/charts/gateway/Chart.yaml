@@ -1,4 +1,4 @@
 apiVersion: v2
 name: gateway
 version: 1.0.0
-description: creates istio-enabled namespace and gateway
+description: creates an istio gateway and virtual service
