@@ -80,10 +80,12 @@ K3S_INSTALL() {
     agent \
     --server https://controlplane.${NAME}.internal:6443 \
     --token $(aws s3 cp s3://${BUCKET}/controlplane/agent-token -) \
+    --kubelet-arg="cloud-provider=external" \
     --node-label node.kubernetes.io/instance-type="$INSTANCE_TYPE" \
     --node-label node.kubernetes.io/id="$INSTANCE_ID" \
     --node-label topology.kubernetes.io/region="$INSTANCE_REGION" \
     --node-label topology.kubernetes.io/zone="$INSTANCE_ZONE" \
+    --node-name "$NODE_NAME" \
     --resolv-conf /etc/rancher/k3s/resolv.conf
 }
 

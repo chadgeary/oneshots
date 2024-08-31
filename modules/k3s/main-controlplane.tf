@@ -49,10 +49,10 @@ resource "aws_iam_instance_profile" "this-controlplane" {
 }
 
 resource "aws_launch_template" "this-controlplane" {
-  image_id = local.ami.id
+  image_id = local.control_plane_ami.id
   name     = "${var.aws.default_tags.tags["Name"]}-controlplane"
   block_device_mappings {
-    device_name = local.ami.root_device_name
+    device_name = local.control_plane_ami.root_device_name
     ebs {
       volume_size = 2
     }
@@ -101,7 +101,7 @@ resource "aws_autoscaling_group" "this-controlplane" {
         version            = "$Latest"
       }
       dynamic "override" {
-        for_each = local.control_plane_instance_types
+        for_each = var.k3s["controlplane"].instance_types
         content {
           instance_type = override.value
         }

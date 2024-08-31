@@ -24,6 +24,33 @@ variable "aws" {
   })
 }
 
+variable "k3s" {
+  type = object({
+    controlplane = object({
+      instance_types = list(string)
+      volume_size    = number
+    })
+    worker = object({
+      instance_types = list(string)
+      max_size       = number
+      min_size       = number
+      volume_size    = number
+    })
+  })
+  default = {
+    controlplane = {
+      instance_types = ["t4g.small", "a1.medium"]
+      volume_size    = "5"
+    }
+    worker = {
+      instance_types = ["t4g.small", "a1.medium"]
+      volume_size    = "7"
+      max_size       = 3
+      min_size       = 2
+    }
+  }
+}
+
 variable "nat" {
   type = object({
     eip = map(object({

@@ -1,7 +1,6 @@
 locals {
-  ami                          = length(data.aws_ec2_instance_type_offerings.this-controlplane-arm64.instance_types) > 0 ? var.aws.amis["minimal-arm64"] : var.aws.amis["minimal-amd64"]
-  control_plane_instance_types = length(data.aws_ec2_instance_type_offerings.this-controlplane-arm64.instance_types) > 0 ? sort(data.aws_ec2_instance_type_offerings.this-controlplane-arm64.instance_types) : sort(data.aws_ec2_instance_type_offerings.this-controlplane-amd64.instance_types)
-  worker_instance_types        = length(data.aws_ec2_instance_type_offerings.this-worker-arm64.instance_types) > 0 ? sort(data.aws_ec2_instance_type_offerings.this-worker-arm64.instance_types) : sort(data.aws_ec2_instance_type_offerings.this-worker-amd64.instance_types)
+  control_plane_ami = length([for each in data.aws_ec2_instance_type.this-controlplane : each if contains(each.supported_architectures, "arm64")]) > 0 ? var.aws.amis["minimal-arm64"] : var.aws.amis["minimal-amd64"]
+  worker_ami        = length([for each in data.aws_ec2_instance_type.this-worker : each if contains(each.supported_architectures, "arm64")]) > 0 ? var.aws.amis["minimal-arm64"] : var.aws.amis["minimal-amd64"]
   files = {
     K3S_BIN_ARM64 = {
       url    = "https://github.com/k3s-io/k3s/releases/download/v${local.versions["K3S"]}/k3s-arm64"

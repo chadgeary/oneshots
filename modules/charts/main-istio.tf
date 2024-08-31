@@ -17,7 +17,10 @@ resource "helm_release" "this-istio-cni" {
     }
     profile = "ambient"
   })]
-  depends_on = [helm_release.this-istio-base]
+  depends_on = [
+    helm_release.this-aws-ccm,
+    helm_release.this-istio-base,
+  ]
 }
 
 resource "helm_release" "this-istio-istiod" {
@@ -37,12 +40,12 @@ resource "helm_release" "this-istio-istiod" {
       replicaCount = 1
       resources = {
         limits = {
-          cpu    = "1"
+          cpu    = "250m"
           memory = "200Mi"
         }
         requests = {
           cpu    = "10m"
-          memory = "50Mi"
+          memory = "10Mi"
         }
       }
       tolerations = [{
@@ -68,7 +71,7 @@ resource "helm_release" "this-istio-ztunnel" {
         memory = "200Mi"
       }
       requests = {
-        cpu    = "50m"
+        cpu    = "20m"
         memory = "50Mi"
       }
     }
@@ -95,7 +98,7 @@ resource "helm_release" "this-istio-gateway" {
         memory = "200Mi"
       }
       requests = {
-        cpu    = "50m"
+        cpu    = "10m"
         memory = "50Mi"
       }
     }
@@ -137,7 +140,7 @@ resource "helm_release" "this-istio-certificate" {
     name    = var.install.name
   })]
   depends_on = [
-    helm_release.this-cert-manager,
+    helm_release.this-cert-manager-webhook-duckdns,
     helm_release.this-istio-istiod,
   ]
 }

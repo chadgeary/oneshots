@@ -47,6 +47,7 @@ def lambda_handler(event, context):
                 f"""\
 #!/usr/bin/env bash
 WORKER_ID="{instance}"
+export WORKER_ID
 {Path("drainworker.sh").read_text()}
 """
             ],
@@ -63,6 +64,7 @@ WORKER_ID="{instance}"
                 f"""\
 #!/usr/bin/env bash
 EVENT_TYPE="{event_type}"
+export EVENT_TYPE
 {Path("gracefulshutdown.sh").read_text()}
 """
             ],

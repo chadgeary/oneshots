@@ -38,7 +38,10 @@ resource "helm_release" "this-cert-manager-webhook-duckdns" {
       token = var.install.duckdnstoken
     }
   })]
-  depends_on = [helm_release.this-cert-manager]
+  depends_on = [
+    helm_release.this-aws-ccm,
+    helm_release.this-cert-manager,
+  ]
 }
 
 resource "helm_release" "this-dnsupdate" {

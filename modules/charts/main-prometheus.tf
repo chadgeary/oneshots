@@ -26,6 +26,9 @@ resource "helm_release" "this-prometheus" {
     kubeScheduler = {
       enabled = false
     }
+    kubeStateMetrics = {
+      enabled = false
+    }
     kubeProxy = {
       enabled = false
     }
@@ -49,5 +52,6 @@ resource "helm_release" "this-prometheus" {
   })]
   depends_on = [
     helm_release.this-prometheus-namespace,
+    helm_release.this-ebs,
   ]
 }

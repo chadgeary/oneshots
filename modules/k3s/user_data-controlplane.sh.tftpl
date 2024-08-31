@@ -113,6 +113,7 @@ K3S_INSTALL() {
     --disable-cloud-controller \
     --disable=servicelb \
     --disable=traefik \
+    --kubelet-arg="cloud-provider=external" \
     --kube-apiserver-arg api-audiences="${NAME}" \
     --kube-apiserver-arg service-account-issuer=https://"${BUCKET}".s3."$INSTANCE_REGION".amazonaws.com/controlplane/oidc \
     --kube-apiserver-arg service-account-jwks-uri=https://"${BUCKET}".s3."$INSTANCE_REGION".amazonaws.com/controlplane/oidc/openid/v1/jwks \
@@ -120,6 +121,8 @@ K3S_INSTALL() {
     --node-label node.kubernetes.io/id="$INSTANCE_ID" \
     --node-label topology.kubernetes.io/region="$INSTANCE_REGION" \
     --node-label topology.kubernetes.io/zone="$INSTANCE_ZONE" \
+    --node-name "$NODE_NAME" \
+    --node-taint "node-role.kubernetes.io/control-plane=:NoSchedule" \
     --resolv-conf /etc/rancher/k3s/resolv.conf \
     --service-cidr=172.20.0.0/16 \
     --tls-san=controlplane."${NAME}".internal \

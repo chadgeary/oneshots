@@ -15,10 +15,11 @@ module "nat" {
 }
 
 module "k3s" {
-  source = "../../modules/k3s"
-  aws    = module.aws.this
-  nat    = module.nat.this
-  vpc    = module.vpc.this
+  source     = "../../modules/k3s"
+  aws        = module.aws.this
+  nat        = module.nat.this
+  vpc        = module.vpc.this
+  depends_on = [module.nat]
 }
 
 resource "local_sensitive_file" "this" {
@@ -28,9 +29,10 @@ resource "local_sensitive_file" "this" {
 }
 
 module "charts" {
-  source  = "../../modules/charts"
-  aws     = module.aws.this
-  cluster = module.k3s.this
-  install = var.install
-  nat     = module.nat.this
+  source     = "../../modules/charts"
+  aws        = module.aws.this
+  cluster    = module.k3s.this
+  install    = var.install
+  nat        = module.nat.this
+  depends_on = [module.nat]
 }

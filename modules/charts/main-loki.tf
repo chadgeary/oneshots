@@ -43,9 +43,6 @@ resource "helm_release" "this-loki" {
         storageClass = "gp3"
       }
       replicas = 1
-      tolerations = [{
-        operator = "Exists"
-      }]
     }
     backend = {
       replicas = 0
@@ -74,5 +71,6 @@ resource "helm_release" "this-loki" {
   })]
   depends_on = [
     helm_release.this-loki-namespace,
+    helm_release.this-ebs,
   ]
 }

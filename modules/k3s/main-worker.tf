@@ -50,13 +50,13 @@ resource "aws_iam_instance_profile" "this-worker" {
 }
 
 resource "aws_launch_template" "this-worker" {
-  image_id               = local.ami.id
+  image_id               = local.worker_ami.id
   name                   = "${var.aws.default_tags.tags["Name"]}-worker"
   vpc_security_group_ids = [aws_security_group.this-nodes.id, aws_security_group.this-worker.id]
   block_device_mappings {
-    device_name = local.ami.root_device_name
+    device_name = local.worker_ami.root_device_name
     ebs {
-      volume_size = 5
+      volume_size = var.k3s["worker"].volume_size
     }
   }
   iam_instance_profile {
@@ -80,10 +80,10 @@ resource "aws_launch_template" "this-worker" {
 resource "aws_autoscaling_group" "this-worker" {
   capacity_rebalance        = false
   default_instance_warmup   = 60
-  desired_capacity          = 1
+  desired_capacity          = floor((var.k3s["worker"].min_size + var.k3s["worker"].max_size) / 2)
   health_check_grace_period = 60
-  max_size                  = 8
-  min_size                  = 0
+  max_size                  = var.k3s["worker"].max_size
+  min_size                  = var.k3s["worker"].min_size
   name                      = "${var.aws.default_tags.tags["Name"]}-worker"
   vpc_zone_identifier       = [lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["id"]]
   mixed_instances_policy {
@@ -98,7 +98,7 @@ resource "aws_autoscaling_group" "this-worker" {
         version            = "$Latest"
       }
       dynamic "override" {
-        for_each = local.worker_instance_types
+        for_each = var.k3s["worker"].instance_types
         content {
           instance_type = override.value
         }
@@ -115,5 +115,11 @@ resource "aws_autoscaling_group" "this-worker" {
     value               = "owned"
     propagate_at_launch = true
   }
+  tag {
+    key                 = "kubernetes.io/nodegroup/${var.aws.default_tags.tags["Name"]}-worker"
+    value               = "true"
+    propagate_at_launch = true
+  }
   depends_on = [data.aws_s3_object.this]
+  lifecycle { ignore_changes = [desired_capacity] }
 }

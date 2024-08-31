@@ -55,11 +55,6 @@ resource "helm_release" "this-grafana" {
       size             = "2Gi"
       storageClassName = "gp3"
     }
-    tolerations = [{
-      effect   = "NoSchedule"
-      key      = "node-role.kubernetes.io/control-plane"
-      operator = "Exists"
-    }]
   })]
   depends_on = [
     helm_release.this-ebs,
