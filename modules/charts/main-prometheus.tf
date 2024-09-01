@@ -14,7 +14,7 @@ resource "helm_release" "this-prometheus" {
   name       = "prometheus"
   namespace  = "prometheus"
   repository = "https://prometheus-community.github.io/helm-charts"
-  version    = "62.3.0"
+  version    = "62.3.1"
   values = [yamlencode({
     alertmanager = {
       enabled = false
