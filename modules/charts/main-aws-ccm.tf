@@ -13,7 +13,7 @@ resource "helm_release" "this-aws-ccm" {
   name             = "aws-cloud-controller-manager"
   namespace        = "kube-system"
   repository       = "https://kubernetes.github.io/cloud-provider-aws"
-  version          = "0.0.8" # renovate: depName=kubernetes/cloud-provider-aws extractVersion=^helm-chart-aws-cloud-controller-manager-(?<version>.+)$
+  version          = "0.0.8"
   values = [yamlencode({
     args = [
       "--v=2",
