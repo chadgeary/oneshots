@@ -56,7 +56,8 @@ resource "aws_launch_template" "this-worker" {
   block_device_mappings {
     device_name = local.worker_ami.root_device_name
     ebs {
-      volume_size = var.k3s["worker"].volume_size
+      volume_size = var.install.k3s["worker"].volume_size
+      volume_type = var.install.k3s["worker"].volume_type
     }
   }
   iam_instance_profile {
@@ -80,10 +81,10 @@ resource "aws_launch_template" "this-worker" {
 resource "aws_autoscaling_group" "this-worker" {
   capacity_rebalance        = false
   default_instance_warmup   = 60
-  desired_capacity          = floor((var.k3s["worker"].min_size + var.k3s["worker"].max_size) / 2)
+  desired_capacity          = floor((var.install.k3s["worker"].min_size + var.install.k3s["worker"].max_size) / 2)
   health_check_grace_period = 60
-  max_size                  = var.k3s["worker"].max_size
-  min_size                  = var.k3s["worker"].min_size
+  max_size                  = var.install.k3s["worker"].max_size
+  min_size                  = var.install.k3s["worker"].min_size
   name                      = "${var.aws.default_tags.tags["Name"]}-worker"
   vpc_zone_identifier       = [lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["id"]]
   mixed_instances_policy {
@@ -98,7 +99,7 @@ resource "aws_autoscaling_group" "this-worker" {
         version            = "$Latest"
       }
       dynamic "override" {
-        for_each = var.k3s["worker"].instance_types
+        for_each = var.install.k3s["worker"].instance_types
         content {
           instance_type = override.value
         }

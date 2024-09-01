@@ -54,7 +54,8 @@ resource "aws_launch_template" "this-controlplane" {
   block_device_mappings {
     device_name = local.control_plane_ami.root_device_name
     ebs {
-      volume_size = 2
+      volume_size = 5
+      volume_type = "standard"
     }
   }
   iam_instance_profile {
@@ -101,7 +102,7 @@ resource "aws_autoscaling_group" "this-controlplane" {
         version            = "$Latest"
       }
       dynamic "override" {
-        for_each = var.k3s["controlplane"].instance_types
+        for_each = var.install.k3s["controlplane"].instance_types
         content {
           instance_type = override.value
         }

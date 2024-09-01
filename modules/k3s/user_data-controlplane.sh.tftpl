@@ -111,6 +111,8 @@ K3S_INSTALL() {
     --cluster-dns=172.20.0.10 \
     --cluster-init \
     --disable-cloud-controller \
+    --disable=local-storage \
+    --disable=metrics-server \
     --disable=servicelb \
     --disable=traefik \
     --kubelet-arg="cloud-provider=external" \

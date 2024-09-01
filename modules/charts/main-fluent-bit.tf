@@ -29,13 +29,9 @@ resource "helm_release" "this-fluent-bit" {
 [INPUT]
     Name systemd
     Tag host.*
-    Systemd_Filter _SYSTEMD_UNIT=k3s.service
-    Read_From_Tail On
-
-[INPUT]
-    Name systemd
-    Tag host.*
+    Systemd_Filter _SYSTEMD_UNIT=amazon-ssm-agent.service
     Systemd_Filter _SYSTEMD_UNIT=k3s-agent.service
+    Systemd_Filter _SYSTEMD_UNIT=k3s.service
     Read_From_Tail On
 EOF
       outputs = <<EOF
@@ -43,7 +39,14 @@ EOF
     Name loki
     Match kube.*
     Host loki.logging.svc.cluster.local
-    auto_kubernetes_labels on
+    labels              tag=kube, namespace=$kubernetes['namespace_name']
+    structured_metadata pod=$kubernetes['pod_name']
+
+[OUTPUT]
+    Name loki
+    Match systemd.*
+    labels              tag=host
+    Host loki.logging.svc.cluster.local
 EOF
     }
     tolerations = [{

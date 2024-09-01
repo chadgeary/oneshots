@@ -45,10 +45,8 @@ resource "aws_vpc_security_group_ingress_rule" "this-controlplane-nat" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "this-nat-public" {
-  for_each          = toset(["80", "443", "6443"])
-  cidr_ipv4         = "0.0.0.0/0"
-  from_port         = tonumber(each.value)
-  ip_protocol       = "tcp"
+  for_each          = toset(var.install.k3s.ingress_cidrs)
+  cidr_ipv4         = each.key
+  ip_protocol       = "-1"
   security_group_id = var.nat.security_group.id
-  to_port           = tonumber(each.value)
 }

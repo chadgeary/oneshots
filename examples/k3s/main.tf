@@ -17,6 +17,7 @@ module "nat" {
 module "k3s" {
   source     = "../../modules/k3s"
   aws        = module.aws.this
+  install    = var.install
   nat        = module.nat.this
   vpc        = module.vpc.this
   depends_on = [module.nat]
