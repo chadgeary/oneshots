@@ -55,7 +55,7 @@ resource "aws_launch_template" "this-controlplane" {
     device_name = local.control_plane_ami.root_device_name
     ebs {
       volume_size = 5
-      volume_type = "standard"
+      volume_type = "gp3"
     }
   }
   iam_instance_profile {
