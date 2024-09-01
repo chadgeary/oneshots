@@ -2,6 +2,8 @@ name: Renovate
 on:
   schedule:
     - cron: '0 18 * * 2'
+  workflow_dispatch:
+
 jobs:
   renovate:
     runs-on: ubuntu-latest
@@ -11,5 +13,4 @@ jobs:
       - name: Renovate
         uses: renovatebot/github-action@v40.2.7
         with:
-          configurationFile: example/renovate-config.js
           token: ${{ secrets.RENOVATE_TOKEN }}
