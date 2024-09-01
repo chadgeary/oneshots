@@ -10,9 +10,11 @@ resource "helm_release" "this-fluent-bit-namespace" {
 }
 
 resource "helm_release" "this-fluent-bit" {
-  chart     = "https://github.com/fluent/helm-charts/releases/download/fluent-bit-0.47.7/fluent-bit-0.47.7.tgz"
-  name      = "fluent-bit"
-  namespace = "fluent-bit"
+  chart      = "fluent-bit"
+  name       = "fluent-bit"
+  namespace  = "fluent-bit"
+  repository = "https://fluent.github.io/helm-charts"
+  version    = "0.47.7"
   values = [yamlencode({
     config = {
       inputs  = <<EOF

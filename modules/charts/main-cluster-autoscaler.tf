@@ -8,9 +8,11 @@ resource "aws_iam_role" "this-cluster-autoscaler" {
 }
 
 resource "helm_release" "this-cluster-autoscaler" {
-  chart     = "https://github.com/kubernetes/autoscaler/releases/download/cluster-autoscaler-chart-9.37.0/cluster-autoscaler-9.37.0.tgz"
-  name      = "cluster-autoscaler"
-  namespace = "kube-system"
+  chart      = "cluster-autoscaler"
+  name       = "cluster-autoscaler"
+  namespace  = "kube-system"
+  repository = "https://kubernetes.github.io/autoscaler"
+  version    = "9.37.0"
   values = [yamlencode({
     autoDiscovery = {
       cloudProvider = "aws"

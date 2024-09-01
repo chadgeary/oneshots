@@ -8,10 +8,12 @@ resource "aws_iam_role" "this-ebs" {
 }
 
 resource "helm_release" "this-ebs" {
-  chart            = "https://github.com/kubernetes-sigs/aws-ebs-csi-driver/releases/download/helm-chart-aws-ebs-csi-driver-2.33.0/aws-ebs-csi-driver-2.33.0.tgz"
+  chart            = "aws-ebs-csi-driver"
   create_namespace = true
   name             = "aws-ebs-csi-driver"
   namespace        = "kube-system"
+  repository       = "https://kubernetes-sigs.github.io/aws-ebs-csi-driver"
+  version          = "2.33.0"
   values = [yamlencode({
     controller = {
       env = [
@@ -65,7 +67,7 @@ resource "helm_release" "this-ebs" {
       ]
       hostNetwork = true
     }
-    storageClasses = [for each in toset(["gp2", "gp3", "io2", "sc1", "st1"]) : {
+    storageClasses = [for each in toset(["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]) : {
       allowVolumeExpansion = true
       name                 = each
       parameters = {

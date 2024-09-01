@@ -23,9 +23,11 @@ resource "helm_release" "this-grafana-gateway" {
 }
 
 resource "helm_release" "this-grafana" {
-  chart     = "https://github.com/grafana/helm-charts/releases/download/grafana-8.4.8/grafana-8.4.8.tgz"
-  name      = "grafana"
-  namespace = "grafana"
+  chart      = "grafana"
+  name       = "grafana"
+  namespace  = "grafana"
+  repository = "https://grafana.github.io/helm-charts"
+  version    = "8.4.8"
   values = [yamlencode({
     datasources = {
       "datasources.yaml" = {

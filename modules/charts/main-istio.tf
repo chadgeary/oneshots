@@ -1,15 +1,19 @@
 resource "helm_release" "this-istio-base" {
-  chart            = "https://istio-release.storage.googleapis.com/charts/base-1.23.0.tgz"
+  chart            = "base"
   create_namespace = true
   name             = "istio-base"
   namespace        = "istio-system"
+  repository       = "https://istio-release.storage.googleapis.com/charts"
+  version          = "1.23.0"
 }
 
 resource "helm_release" "this-istio-cni" {
-  chart            = "https://istio-release.storage.googleapis.com/charts/cni-1.23.0.tgz"
+  chart            = "cni"
   create_namespace = true
   name             = "istio-cni"
   namespace        = "istio-system"
+  repository       = "https://istio-release.storage.googleapis.com/charts"
+  version          = "1.23.0"
   values = [yamlencode({
     cni = {
       cniBinDir  = "/var/lib/rancher/k3s/data/current/bin/"
@@ -24,10 +28,12 @@ resource "helm_release" "this-istio-cni" {
 }
 
 resource "helm_release" "this-istio-istiod" {
-  chart            = "https://istio-release.storage.googleapis.com/charts/istiod-1.23.0.tgz"
+  chart            = "istiod"
   create_namespace = true
   name             = "istio-istiod"
   namespace        = "istio-system"
+  repository       = "https://istio-release.storage.googleapis.com/charts"
+  version          = "1.23.0"
   values = [yamlencode({
     pilot = {
       autoscaleEnabled = false
@@ -60,10 +66,12 @@ resource "helm_release" "this-istio-istiod" {
 }
 
 resource "helm_release" "this-istio-ztunnel" {
-  chart            = "https://istio-release.storage.googleapis.com/charts/ztunnel-1.23.0.tgz"
+  chart            = "ztunnel"
   create_namespace = true
   name             = "istio-ztunnel"
   namespace        = "istio-system"
+  repository       = "https://istio-release.storage.googleapis.com/charts"
+  version          = "1.23.0"
   values = [yamlencode({
     resources = {
       limits = {
@@ -80,10 +88,12 @@ resource "helm_release" "this-istio-ztunnel" {
 }
 
 resource "helm_release" "this-istio-gateway" {
-  chart            = "https://istio-release.storage.googleapis.com/charts/gateway-1.23.0.tgz"
+  chart            = "gateway"
   create_namespace = true
   name             = "istio-gateway"
   namespace        = "istio-system"
+  repository       = "https://istio-release.storage.googleapis.com/charts"
+  version          = "1.23.0"
   values = [yamlencode({
     autoscaling = {
       enabled = false

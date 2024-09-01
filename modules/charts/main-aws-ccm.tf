@@ -8,10 +8,12 @@ resource "aws_iam_role" "this-aws-ccm" {
 }
 
 resource "helm_release" "this-aws-ccm" {
-  chart            = "https://github.com/kubernetes/cloud-provider-aws/releases/download/helm-chart-aws-cloud-controller-manager-0.0.8/aws-cloud-controller-manager-0.0.8.tgz"
+  chart            = "aws-cloud-controller-manager"
   create_namespace = true
   name             = "aws-cloud-controller-manager"
   namespace        = "kube-system"
+  repository       = "https://kubernetes.github.io/cloud-provider-aws"
+  version          = "0.0.8" # renovate: depName=kubernetes/cloud-provider-aws extractVersion=^helm-chart-aws-cloud-controller-manager-(?<version>.+)$
   values = [yamlencode({
     args = [
       "--v=2",

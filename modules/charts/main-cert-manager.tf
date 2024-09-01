@@ -1,8 +1,10 @@
 resource "helm_release" "this-cert-manager" {
-  chart            = "https://charts.jetstack.io/charts/cert-manager-v1.15.3.tgz"
+  chart            = "cert-manager"
   create_namespace = true
   name             = "cert-manager"
   namespace        = "cert-manager"
+  repository       = "https://charts.jetstack.io/charts"
+  version          = "1.15.3"
   values = [yamlencode({
     crds = {
       enabled = true
@@ -19,10 +21,12 @@ resource "helm_release" "this-cert-manager" {
 }
 
 resource "helm_release" "this-cert-manager-webhook-duckdns" {
-  chart            = "https://github.com/chadgeary/cert-manager-webhook-duckdns/releases/download/cert-manager-webhook-duckdns-1.0.0/cert-manager-webhook-duckdns-1.0.0.tgz"
+  chart            = "cert-manager-webhook-duckdns"
   create_namespace = true
   name             = "cert-manager-webhook-duckdns"
   namespace        = "cert-manager"
+  repository       = "https://chadgeary.github.io/cert-manager-webhook-duckdns"
+  version          = "1.0.0"
   values = [yamlencode({
     groupName = "acme.webhook.duckdns.org"
     clusterIssuer = {
@@ -35,7 +39,7 @@ resource "helm_release" "this-cert-manager-webhook-duckdns" {
       }
     }
     duckdns = {
-      token = var.install.duckdnstoken
+      token = var.install.charts.duckdnstoken
     }
   })]
   depends_on = [

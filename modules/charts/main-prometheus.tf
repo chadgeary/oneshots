@@ -10,9 +10,11 @@ resource "helm_release" "this-prometheus-namespace" {
 }
 
 resource "helm_release" "this-prometheus" {
-  chart     = "https://github.com/prometheus-community/helm-charts/releases/download/kube-prometheus-stack-62.3.0/kube-prometheus-stack-62.3.0.tgz"
-  name      = "prometheus"
-  namespace = "prometheus"
+  chart      = "kube-prometheus-stack"
+  name       = "prometheus"
+  namespace  = "prometheus"
+  repository = "https://prometheus-community.github.io/helm-charts"
+  version    = "62.3.0"
   values = [yamlencode({
     alertmanager = {
       enabled = false

@@ -28,8 +28,10 @@ variable "cluster" {
 
 variable "install" {
   type = object({
-    duckdnstoken = string
-    name         = string
+    charts = object({
+      duckdnstoken = string
+    })
+    name = string
   })
 }
 

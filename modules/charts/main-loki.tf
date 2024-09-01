@@ -10,9 +10,11 @@ resource "helm_release" "this-loki-namespace" {
 }
 
 resource "helm_release" "this-loki" {
-  chart     = "https://github.com/grafana/helm-charts/releases/download/helm-loki-6.10.0/loki-6.10.0.tgz"
-  name      = "loki"
-  namespace = "logging"
+  chart      = "loki"
+  name       = "loki"
+  namespace  = "logging"
+  repository = "https://grafana.github.io/helm-charts"
+  version    = "6.10.0"
   values = [yamlencode({
     deploymentMode = "SingleBinary"
     loki = {
