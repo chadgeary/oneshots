@@ -14,7 +14,7 @@ resource "helm_release" "this-fluent-bit" {
   name       = "fluent-bit"
   namespace  = "fluent-bit"
   repository = "https://fluent.github.io/helm-charts"
-  version    = "0.47.7"
+  version    = "0.47.9"
   values = [yamlencode({
     config = {
       inputs  = <<EOF
