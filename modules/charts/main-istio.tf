@@ -4,7 +4,7 @@ resource "helm_release" "this-istio-base" {
   name             = "istio-base"
   namespace        = "istio-system"
   repository       = "https://istio-release.storage.googleapis.com/charts"
-  version          = "1.23.0"
+  version          = "1.23.1"
 }
 
 resource "helm_release" "this-istio-cni" {
