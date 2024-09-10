@@ -71,7 +71,7 @@ resource "helm_release" "this-istio-ztunnel" {
   name             = "istio-ztunnel"
   namespace        = "istio-system"
   repository       = "https://istio-release.storage.googleapis.com/charts"
-  version          = "1.23.0"
+  version          = "1.23.1"
   values = [yamlencode({
     resources = {
       limits = {
