@@ -93,7 +93,7 @@ resource "helm_release" "this-istio-gateway" {
   name             = "istio-gateway"
   namespace        = "istio-system"
   repository       = "https://istio-release.storage.googleapis.com/charts"
-  version          = "1.23.0"
+  version          = "1.23.1"
   values = [yamlencode({
     autoscaling = {
       enabled = false
