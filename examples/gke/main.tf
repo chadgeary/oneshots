@@ -15,9 +15,9 @@ module "nat" {
   gcp     = module.gcp.this
 }
 
-# module "gke" {
-#   source     = "../../modules/gcp/gke"
-#   install    = var.install
-#   gcp        = module.gcp.this
-#   depends_on = [module.nat]
-# }
+module "gke" {
+  source     = "../../modules/gcp/gke"
+  install    = var.install
+  gcp        = module.gcp.this
+  depends_on = [module.nat]
+}
