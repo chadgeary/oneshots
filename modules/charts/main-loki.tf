@@ -42,7 +42,7 @@ resource "helm_release" "this-loki" {
       persistence = {
         enabled      = true
         size         = "3Gi"
-        storageClass = "gp3"
+        storageClass = var.install.provider.storageclass
       }
       replicas = 1
     }
@@ -73,6 +73,5 @@ resource "helm_release" "this-loki" {
   })]
   depends_on = [
     helm_release.this-loki-namespace,
-    helm_release.this-ebs,
   ]
 }

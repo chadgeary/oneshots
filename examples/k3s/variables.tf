@@ -2,9 +2,9 @@ variable "install" {
   type = object({
     name = string
     charts = object({
-      duckdnstoken = string
+      duckdnstoken = optional(string, "")
     })
-    k3s = object({
+    k3s = optional(object({
       controlplane = object({
         instance_types = list(string)
         volume_size    = number
@@ -17,18 +17,7 @@ variable "install" {
         volume_type    = string
       })
       ingress_cidrs = list(string)
-    })
-    vpc = object({
-      cidr  = string
-      zones = number
-    })
-  })
-  default = {
-    name = "a-unique-name"
-    charts = {
-      duckdnstoken = ""
-    }
-    k3s = {
+      }), {
       controlplane = {
         instance_types = ["t4g.small", "a1.medium"]
         volume_size    = "5"
@@ -41,10 +30,22 @@ variable "install" {
         volume_type    = "gp3"
       }
       ingress_cidrs = ["0.0.0.0/0"]
-    }
-    vpc = {
+    })
+    provider = optional(object({
+      cloud        = string
+      k8s          = string
+      storageclass = string
+      }), {
+      cloud        = "aws"
+      k8s          = "k3s"
+      storageclass = "gp3"
+    })
+    vpc = optional(object({
+      cidr  = string
+      zones = number
+      }), {
       cidr  = "10.100.0.0/20"
       zones = 1
-    }
-  }
+    })
+  })
 }

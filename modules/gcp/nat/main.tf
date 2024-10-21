@@ -35,7 +35,7 @@ resource "google_compute_address" "this" {
 }
 
 resource "google_compute_instance_template" "this" {
-  name           = "${var.install.name}-nat"
+  name_prefix    = "${var.install.name}-nat"
   can_ip_forward = true
   machine_type   = "e2-micro"
   project        = var.install.name
@@ -57,13 +57,13 @@ until apt-get update; do sleep 1; done
 apt-get install -y nftables
 
 # rules
-iptables -t nat -A POSTROUTING -o eth0 -j MASQERADE
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 nft add rule nat POSTROUTING masquerade
 EOF
   }
 
   network_interface {
-    network_ip = cidrhost(cidrsubnet(var.install.network.cidr, 1, 0), 10)
+    network_ip = cidrhost(cidrsubnet(var.install.network.cidr, 2, 0), 10)
     stack_type = "IPV4_ONLY"
     subnetwork = google_compute_subnetwork.this-public.id
     access_config {
@@ -76,7 +76,8 @@ EOF
     scopes = ["userinfo-email", "compute-ro", "storage-ro"]
   }
   lifecycle {
-    ignore_changes = [disk]
+    create_before_destroy = true
+    ignore_changes        = [disk]
   }
 }
 
@@ -138,7 +139,7 @@ resource "google_compute_firewall" "this-iap" {
   priority      = "500"
   project       = var.install.name
   source_ranges = ["35.235.240.0/20"] # https://cloud.google.com/iap/docs/using-tcp-forwarding
-  target_tags   = ["${var.install.name}-nat"]
+  target_tags   = ["${var.install.name}-gke", "${var.install.name}-nat"]
   allow {
     protocol = "all"
   }

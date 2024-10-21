@@ -29,10 +29,16 @@ resource "local_sensitive_file" "this" {
   filename        = "${path.root}/config"
 }
 
-module "charts" {
+module "aws/charts" {
   source     = "../../modules/aws/charts"
   aws        = module.aws.this
   cluster    = module.k3s.this
+  install    = var.install
+  depends_on = [module.nat]
+}
+
+module "charts" {
+  source     = "../../modules/charts"
   install    = var.install
   nat        = module.nat.this
   depends_on = [module.nat]

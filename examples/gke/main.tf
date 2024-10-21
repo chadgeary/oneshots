@@ -21,3 +21,16 @@ module "gke" {
   gcp        = module.gcp.this
   depends_on = [module.nat]
 }
+
+resource "local_sensitive_file" "this" {
+  content         = module.gke.this.files["config"]
+  file_permission = "0600"
+  filename        = "${path.root}/config"
+}
+
+module "charts" {
+  source     = "../../modules/charts"
+  install    = var.install
+  nat        = module.nat.this
+  depends_on = [module.nat]
+}

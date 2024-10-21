@@ -5,3 +5,7 @@ A budget-friendly k8s cluster using Google Cloud's GKE free tier with a single `
 - ~$5/month
 - self-healing nodes
 - autoscaling workers
+
+## requires
+
+- gke-gcloud-auth-plugin
