@@ -26,7 +26,7 @@ resource "helm_release" "this-cert-manager-webhook-duckdns" {
   name             = "cert-manager-webhook-duckdns"
   namespace        = "cert-manager"
   repository       = "https://chadgeary.github.io/cert-manager-webhook-duckdns"
-  version          = "1.0.0"
+  version          = "1.0.1"
   values = [yamlencode({
     groupName = "acme.webhook.duckdns.org"
     clusterIssuer = {
