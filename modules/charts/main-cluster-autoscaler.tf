@@ -12,7 +12,7 @@ resource "helm_release" "this-cluster-autoscaler" {
   name       = "cluster-autoscaler"
   namespace  = "kube-system"
   repository = "https://kubernetes.github.io/autoscaler"
-  version    = "9.43.0"
+  version    = "9.43.1"
   values = [yamlencode({
     autoDiscovery = {
       cloudProvider = "aws"
