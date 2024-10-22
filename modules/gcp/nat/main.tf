@@ -50,15 +50,50 @@ resource "google_compute_instance_template" "this" {
 #!/bin/bash -x
 
 # forwarding
-sysctl -w net.ipv4.ip_forward=1
+sysctl -q -w net.ipv4.ip_forward=1
 
-# package(s)
-until apt-get update; do sleep 1; done
-apt-get install -y nftables
+# reverse path
+for i in $(find /proc/sys/net/ipv4/conf/ -name rp_filter) ; do
+  echo 0 > $i;
+done
 
-# rules
-iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-nft add rule nat POSTROUTING masquerade
+# NAT
+ENI_IFACE=$(ip route | grep default | awk '{print $5}')
+iptables -t nat -F
+iptables -t nat -A POSTROUTING -o "$ENI_IFACE" -j MASQUERADE -m comment --comment "NAT Gateway"
+
+# ACCEPT
+iptables -t nat -A PREROUTING -s ${cidrsubnet(var.install.network.cidr, 2, 1)} -j ACCEPT
+
+cat > /opt/forward.sh << 'EOM'
+while true
+do
+  sleep 15
+  TARGET_NODE=$(gcloud compute instances list \
+    --filter="tags.items=${var.install.name}-gke" \
+    --format="value(networkInterfaces[0].networkIP)" \
+    --sort-by="networkInterfaces[0].networkIP" \
+    --limit=1)
+  echo $TARGET_NODE > /opt/TARGET_NODE
+  if iptables -t nat -L PREROUTING --line-numbers | grep DNAT | grep --quiet $TARGET_NODE
+  then
+    echo "nothing to do."
+  else
+    iptables -t nat -D PREROUTING 3
+    iptables -t nat -D PREROUTING 2
+    declare -a PORT_FORWARDS=("80:31080" "443:31443")
+    for PORT_FORWARD in "$${PORT_FORWARDS[@]}"
+    do
+      SRC_PORT=$(echo "$PORT_FORWARD" | awk -F':' '{print $1}' )
+      DST_PORT=$(echo "$PORT_FORWARD" | awk -F':' '{print $2}' )
+      iptables -t nat -A PREROUTING -p tcp --dport $SRC_PORT -j DNAT --to-destination $TARGET_NODE:$DST_PORT
+    done
+  fi
+done
+EOM
+chmod +x /opt/forward.sh
+/opt/forward.sh &
+
 EOF
   }
 
@@ -92,6 +127,9 @@ resource "google_compute_instance_group_manager" "this" {
   project            = var.install.name
   target_pools       = [google_compute_target_pool.this.id]
   zone               = var.gcp.google_compute_zones.names[0]
+  instance_lifecycle_policy {
+    force_update_on_repair = "YES"
+  }
   version {
     instance_template = google_compute_instance_template.this.id
   }
@@ -142,5 +180,31 @@ resource "google_compute_firewall" "this-iap" {
   target_tags   = ["${var.install.name}-gke", "${var.install.name}-nat"]
   allow {
     protocol = "all"
+  }
+}
+
+resource "google_compute_firewall" "this-gateway-nat" {
+  name          = "${var.install.name}-gateway-nat"
+  network       = google_compute_network.this.id
+  priority      = "500"
+  project       = var.install.name
+  target_tags   = ["${var.install.name}-nat"]
+  source_ranges = ["0.0.0.0/0"]
+  allow {
+    protocol = "tcp"
+    ports    = ["80", "443"]
+  }
+}
+
+resource "google_compute_firewall" "this-gateway-gke" {
+  name        = "${var.install.name}-gateway-gke"
+  network     = google_compute_network.this.id
+  priority    = "500"
+  project     = var.install.name
+  target_tags = ["${var.install.name}-gke"]
+  source_tags = ["${var.install.name}-nat"]
+  allow {
+    protocol = "tcp"
+    ports    = ["31080", "31443"]
   }
 }

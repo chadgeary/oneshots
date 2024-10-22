@@ -43,6 +43,11 @@ resource "helm_release" "this-istio-istiod" {
   repository = "https://istio-release.storage.googleapis.com/charts"
   version    = "1.23.2"
   values = [yamlencode({
+    global = {
+      defaultPodDisruptionBudget = {
+        enabled = false
+      }
+    }
     pilot = {
       autoscaleEnabled = false
       cni = {
@@ -104,6 +109,7 @@ resource "helm_release" "this-istio-gateway" {
     autoscaling = {
       enabled = false
     }
+    kind = var.install.provider.k8s == "gke" ? "DaemonSet" : "Deployment"
     nodeSelector = var.install.provider.k8s == "k3s" ? {
       "node-role.kubernetes.io/control-plane" = "true"
     } : {}

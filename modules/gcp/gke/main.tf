@@ -1,15 +1,3 @@
-resource "google_compute_firewall" "this" {
-  name               = "${var.install.name}-gke"
-  direction          = "EGRESS"
-  network            = "projects/${var.install.name}/global/networks/${var.install.name}"
-  priority           = "100"
-  project            = var.install.name
-  destination_ranges = ["0.0.0.0/0"]
-  allow {
-    protocol = "all"
-  }
-}
-
 resource "google_container_cluster" "this" {
   deletion_protection      = false
   initial_node_count       = 1
@@ -74,7 +62,6 @@ resource "google_container_cluster" "this" {
   lifecycle {
     ignore_changes = [node_config, node_pool]
   }
-  depends_on = [google_compute_firewall.this]
 }
 
 resource "google_container_node_pool" "this" {

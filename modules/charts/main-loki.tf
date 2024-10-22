@@ -22,6 +22,8 @@ resource "helm_release" "this-loki" {
       commonConfig = {
         replication_factor = 1
       }
+      retention_deletes_enabled = true
+      retention_period          = "168h"
       schemaConfig = {
         configs = [{
           from = "2024-01-01"
@@ -41,7 +43,7 @@ resource "helm_release" "this-loki" {
     singleBinary = {
       persistence = {
         enabled      = true
-        size         = "3Gi"
+        size         = "2Gi"
         storageClass = var.install.provider.storageclass
       }
       replicas = 1
