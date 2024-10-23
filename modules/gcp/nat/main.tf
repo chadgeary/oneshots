@@ -62,7 +62,7 @@ ENI_IFACE=$(ip route | grep default | awk '{print $5}')
 iptables -t nat -F
 iptables -t nat -A POSTROUTING -o "$ENI_IFACE" -j MASQUERADE -m comment --comment "NAT Gateway"
 
-# ACCEPT
+# Ingress
 iptables -t nat -A PREROUTING -s ${cidrsubnet(var.install.network.cidr, 2, 1)} -j ACCEPT
 
 cat > /opt/forward.sh << 'EOM'

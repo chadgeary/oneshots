@@ -2,7 +2,7 @@ resource "aws_security_group" "this-nodes" {
   description = "${var.aws.default_tags.tags["Name"]}-nodes"
   name        = "${var.aws.default_tags.tags["Name"]}-nodes"
   tags        = { Name = "${var.aws.default_tags.tags["Name"]}-nodes" }
-  vpc_id      = var.vpc.vpc.id
+  vpc_id      = var.nat.vpc.id
 }
 
 resource "aws_vpc_security_group_egress_rule" "this-nodes" {
@@ -31,17 +31,19 @@ resource "aws_security_group" "this-worker" {
   description = "${var.aws.default_tags.tags["Name"]}-worker"
   name        = "${var.aws.default_tags.tags["Name"]}-worker"
   tags        = { Name = "${var.aws.default_tags.tags["Name"]}-worker" }
-  vpc_id      = var.vpc.vpc.id
+  vpc_id      = var.nat.vpc.id
 }
 
 resource "aws_iam_role" "this-worker" {
   assume_role_policy = data.aws_iam_policy_document.this-assume["ec2"].json
   description        = "${var.aws.default_tags.tags["Name"]}-worker"
   name               = "${var.aws.default_tags.tags["Name"]}-worker"
-  inline_policy {
-    name   = "${var.aws.default_tags.tags["Name"]}-worker"
-    policy = data.aws_iam_policy_document.this-worker.json
-  }
+}
+
+resource "aws_iam_role_policy" "this-worker" {
+  name   = "${var.aws.default_tags.tags["Name"]}-worker"
+  role   = aws_iam_role.this-worker.id
+  policy = data.aws_iam_policy_document.this-worker.json
 }
 
 resource "aws_iam_instance_profile" "this-worker" {
@@ -73,7 +75,7 @@ resource "aws_launch_template" "this-worker" {
     "${path.module}/user_data-worker.sh.tftpl", {
       BUCKET     = aws_s3_bucket.this.id
       NAME       = var.aws.default_tags.tags["Name"]
-      PRIVATE_IP = cidrhost(lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["cidr_block"], 10)
+      PRIVATE_IP = cidrhost(cidrsubnet(var.install.network.cidr, 1, 1), 10)
     }
   ))
 }
@@ -86,7 +88,7 @@ resource "aws_autoscaling_group" "this-worker" {
   max_size                  = var.install.k3s["worker"].max_size
   min_size                  = var.install.k3s["worker"].min_size
   name                      = "${var.aws.default_tags.tags["Name"]}-worker"
-  vpc_zone_identifier       = [lookup(var.vpc.subnets.private, keys(var.vpc.subnets.private)[0], null)["id"]]
+  vpc_zone_identifier       = [var.nat.subnets.private.id]
   mixed_instances_policy {
     instances_distribution {
       on_demand_base_capacity                  = 0

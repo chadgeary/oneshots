@@ -12,26 +12,16 @@ variable "aws" {
         Name = string
       })
     })
+    region = object({
+      name = string
+    })
   })
 }
 
-variable "vpc" {
+variable "install" {
   type = object({
-    subnets = map(map(object({
-      availability_zone = string
-      cidr_block        = string
-      id                = string
-    })))
-    route_tables = object({
-      private = map(object({
-        id = string
-      }))
-      public = object({
-        id = string
-      })
-    })
-    vpc = object({
-      id = string
+    network = object({
+      cidr = string
     })
   })
 }

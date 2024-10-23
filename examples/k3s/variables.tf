@@ -8,6 +8,7 @@ variable "install" {
       controlplane = object({
         instance_types = list(string)
         volume_size    = number
+        volume_type    = string
       })
       worker = object({
         instance_types = list(string)
@@ -19,14 +20,15 @@ variable "install" {
       ingress_cidrs = list(string)
       }), {
       controlplane = {
-        instance_types = ["t4g.small", "a1.medium"]
-        volume_size    = "5"
+        instance_types = ["t3.small", "t3a.small", "t2.small"]
+        volume_size    = "3"
+        volume_type    = "gp3"
       }
       worker = {
-        instance_types = ["t4g.small", "a1.medium"]
-        max_size       = 3
-        min_size       = 2
-        volume_size    = "5"
+        instance_types = ["m6g.medium", "m7g.medium", "m8g.medium", "t4g.medium"]
+        max_size       = 2
+        min_size       = 1
+        volume_size    = "8"
         volume_type    = "gp3"
       }
       ingress_cidrs = ["0.0.0.0/0"]
@@ -40,12 +42,10 @@ variable "install" {
       k8s          = "k3s"
       storageclass = "gp3"
     })
-    vpc = optional(object({
-      cidr  = string
-      zones = number
+    network = optional(object({
+      cidr = string
       }), {
-      cidr  = "10.100.0.0/20"
-      zones = 1
+      cidr = "10.100.0.0/20"
     })
   })
 }

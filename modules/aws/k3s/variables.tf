@@ -4,6 +4,9 @@ variable "aws" {
       id               = string
       root_device_name = string
     }))
+    availability_zones = object({
+      names = list(string)
+    })
     caller_identity = object({
       account_id = string
     })
@@ -30,6 +33,7 @@ variable "install" {
       controlplane = object({
         instance_types = list(string)
         volume_size    = number
+        volume_type    = string
       })
       worker = object({
         instance_types = list(string)
@@ -40,33 +44,43 @@ variable "install" {
       })
       ingress_cidrs = list(string)
     })
+    network = object({
+      cidr = string
+    })
   })
 }
 
 variable "nat" {
   type = object({
-    eip = map(object({
+    eip = object({
       public_ip = string
-    }))
+    })
     security_group = object({
       id = string
     })
-  })
-}
-
-variable "vpc" {
-  type = object({
-    networks = object({
-      private = string
-    })
-    subnets = map(map(object({
-      availability_zone = string
-      cidr_block        = string
-      id                = string
-    })))
+    subnets = map(object({
+      id = string
+    }))
     vpc = object({
       cidr_block = string
       id         = string
     })
   })
 }
+
+# variable "vpc" {
+#   type = object({
+#     networks = object({
+#       private = string
+#     })
+#     subnets = map(map(object({
+#       availability_zone = string
+#       cidr_block        = string
+#       id                = string
+#     })))
+#     vpc = object({
+#       cidr_block = string
+#       id         = string
+#     })
+#   })
+# }

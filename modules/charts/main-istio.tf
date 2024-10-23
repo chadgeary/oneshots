@@ -109,11 +109,7 @@ resource "helm_release" "this-istio-gateway" {
     autoscaling = {
       enabled = false
     }
-    kind = var.install.provider.k8s == "gke" ? "DaemonSet" : "Deployment"
-    nodeSelector = var.install.provider.k8s == "k3s" ? {
-      "node-role.kubernetes.io/control-plane" = "true"
-    } : {}
-    replicaCount = 1
+    kind = "DaemonSet"
     resources = {
       limits = {
         cpu    = "1"
@@ -143,11 +139,6 @@ resource "helm_release" "this-istio-gateway" {
         },
       ]
     }
-    tolerations = [{
-      effect   = "NoSchedule"
-      key      = "node-role.kubernetes.io/control-plane"
-      operator = "Exists"
-    }]
     })
   ]
   depends_on = [helm_release.this-istio-ztunnel]

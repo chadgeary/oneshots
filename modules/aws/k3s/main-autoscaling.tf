@@ -2,10 +2,12 @@ resource "aws_iam_role" "this-autoscaling" {
   assume_role_policy = data.aws_iam_policy_document.this-assume["autoscaling"].json
   description        = "${var.aws.default_tags.tags["Name"]}-autoscaling"
   name               = "${var.aws.default_tags.tags["Name"]}-autoscaling"
-  inline_policy {
-    name   = "${var.aws.default_tags.tags["Name"]}-autoscaling"
-    policy = data.aws_iam_policy_document.this-autoscaling.json
-  }
+}
+
+resource "aws_iam_role_policy" "this-autoscaling" {
+  name   = "${var.aws.default_tags.tags["Name"]}--autoscaling"
+  role   = aws_iam_role.this-autoscaling.id
+  policy = data.aws_iam_policy_document.this-autoscaling.json
 }
 
 resource "aws_sns_topic" "this-autoscaling" {

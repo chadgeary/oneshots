@@ -3,6 +3,7 @@ data "aws_iam_policy_document" "this" {
   statement {
     sid = "ssm"
     actions = [
+      "ec2:DescribeInstances",
       "ssm:UpdateInstanceInformation",
       "ssmmessages:CreateControlChannel",
       "ssmmessages:CreateDataChannel",

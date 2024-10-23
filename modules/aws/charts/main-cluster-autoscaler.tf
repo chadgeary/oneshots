@@ -1,10 +1,12 @@
 resource "aws_iam_role" "this-cluster-autoscaler" {
   name               = "${var.aws.default_tags.tags["Name"]}-cluster-autoscaler"
   assume_role_policy = data.aws_iam_policy_document.this-cluster-autoscaler-trust.json
-  inline_policy {
-    name   = "${var.aws.default_tags.tags["Name"]}-cluster-autoscaler"
-    policy = data.aws_iam_policy_document.this-cluster-autoscaler.json
-  }
+}
+
+resource "aws_iam_role_policy" "this-cluster-autoscaler" {
+  name   = "${var.aws.default_tags.tags["Name"]}-cluster-autoscaler"
+  role   = aws_iam_role.this-cluster-autoscaler.id
+  policy = data.aws_iam_policy_document.this-cluster-autoscaler.json
 }
 
 resource "helm_release" "this-cluster-autoscaler" {

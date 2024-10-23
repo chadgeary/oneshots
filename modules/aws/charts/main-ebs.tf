@@ -1,10 +1,12 @@
 resource "aws_iam_role" "this-ebs" {
   name               = "${var.aws.default_tags.tags["Name"]}-ebs"
   assume_role_policy = data.aws_iam_policy_document.this-ebs-trust.json
-  inline_policy {
-    name   = "${var.aws.default_tags.tags["Name"]}-ebs"
-    policy = data.aws_iam_policy_document.this-ebs.json
-  }
+}
+
+resource "aws_iam_role_policy" "this-ebs" {
+  name   = "${var.aws.default_tags.tags["Name"]}-ebs"
+  role   = aws_iam_role.this-ebs.id
+  policy = data.aws_iam_policy_document.this-ebs.json
 }
 
 resource "helm_release" "this-ebs" {

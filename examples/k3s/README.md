@@ -2,12 +2,8 @@
 
 A budget-friendly k3s cluster in aws with a single `terraform apply`:
 
-- ~$15/month
-- self-healing nodes
-- duckdns.org domain with letsencrypt wildcard certificate
-- support for AWS IRSA
-- autoscaling workers
-- secure istio ingress gateway and mTLS mesh
+- < $20/month with free tier resources and spot nodes
+- TLS w/ istio, duckdns, and letsencrypt
 
 ## requirements
 

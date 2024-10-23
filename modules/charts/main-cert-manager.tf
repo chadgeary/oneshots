@@ -10,11 +10,6 @@ resource "helm_release" "this-cert-manager" {
       enabled = true
     }
     replicaCount = 1
-    tolerations = [{
-      effect   = "NoSchedule"
-      key      = "node-role.kubernetes.io/control-plane"
-      operator = "Exists"
-    }]
   })]
 }
 

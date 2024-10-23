@@ -15,11 +15,46 @@ for i in $(find /proc/sys/net/ipv4/conf/ -name rp_filter) ; do
   echo 0 > $i;
 done
 
-# NAT route
+# NAT
 dnf install -y iptables
 iptables -t nat -F
 iptables -t nat -A POSTROUTING -o "$ENI_IFACE_NAME" -j MASQUERADE -m comment --comment "NAT Gateway"
 
+# Control Plane
+iptables -t nat -A PREROUTING -p tcp --dport 6443 -j DNAT --to-destination ${controlplane}:6443
+
+# Ingress
+iptables -t nat -A PREROUTING -s ${private} -j ACCEPT
+
+cat > /opt/forward.sh << 'EOM'
+while true
+do
+  sleep 15
+  TARGET_NODE=$(aws ec2 describe-instances \
+    --filters "Name=tag:Name,Values=${aws.default_tags.tags.Name}-worker" \
+    --query "Reservations[*].Instances[*].PrivateIpAddress | [] | sort(@) | [0]" \
+    --output text)
+  echo $TARGET_NODE > /opt/TARGET_NODE
+  if iptables -t nat -L PREROUTING --line-numbers | grep DNAT | grep --quiet $TARGET_NODE
+  then
+    echo "nothing to do."
+  else
+    iptables -t nat -D PREROUTING 4
+    iptables -t nat -D PREROUTING 3
+    declare -a PORT_FORWARDS=("80:31080" "443:31443")
+    for PORT_FORWARD in "$${PORT_FORWARDS[@]}"
+    do
+      SRC_PORT=$(echo "$PORT_FORWARD" | awk -F':' '{print $1}' )
+      DST_PORT=$(echo "$PORT_FORWARD" | awk -F':' '{print $2}' )
+      iptables -t nat -A PREROUTING -p tcp --dport $SRC_PORT -j DNAT --to-destination $TARGET_NODE:$DST_PORT
+    done
+  fi
+done
+EOM
+chmod +x /opt/forward.sh
+/opt/forward.sh &
+
 # SSM Agent
 dnf install -y \
   "https://s3.$INSTANCE_REGION.amazonaws.com/amazon-ssm-$INSTANCE_REGION/latest/linux_$INSTANCE_ARCH/amazon-ssm-agent.rpm"
+
