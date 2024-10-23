@@ -52,14 +52,8 @@ resource "helm_release" "this-grafana" {
         ]
       }
     }
-    persistence = {
-      enabled          = true
-      size             = "2Gi"
-      storageClassName = "gp3"
-    }
   })]
   depends_on = [
-    helm_release.this-ebs,
     helm_release.this-grafana-gateway,
   ]
 }

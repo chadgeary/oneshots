@@ -1,44 +1,21 @@
-variable "aws" {
-  type = object({
-    caller_identity = object({
-      account_id = string
-    })
-    default_tags = object({
-      tags = object({
-        Name = string
-      })
-    })
-    partition = object({
-      id = string
-    })
-    region = object({
-      name = string
-    })
-  })
-}
-
-variable "cluster" {
-  type = object({
-    idp = object({
-      arn = string
-      url = string
-    })
-  })
-}
-
 variable "install" {
   type = object({
     charts = object({
       duckdnstoken = string
     })
     name = string
+    provider = object({
+      cloud        = string
+      k8s          = string
+      storageclass = string
+    })
   })
 }
 
 variable "nat" {
   type = object({
-    eip = map(object({
+    eip = object({
       public_ip = string
-    }))
+    })
   })
 }

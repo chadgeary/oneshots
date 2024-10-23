@@ -8,7 +8,6 @@ data "aws_s3_object" "this" {
   bucket = aws_s3_bucket.this.id
   key    = "controlplane/${each.key}"
   depends_on = [
-    aws_ssm_association.this-nat,
     data.aws_lambda_invocation.this-watch,
   ]
 }

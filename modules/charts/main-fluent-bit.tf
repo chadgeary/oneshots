@@ -29,9 +29,14 @@ resource "helm_release" "this-fluent-bit" {
 [INPUT]
     Name systemd
     Tag host.*
+    %{if var.install.provider.k8s == "k3s"~}
     Systemd_Filter _SYSTEMD_UNIT=amazon-ssm-agent.service
     Systemd_Filter _SYSTEMD_UNIT=k3s-agent.service
     Systemd_Filter _SYSTEMD_UNIT=k3s.service
+    %{else~}
+    Systemd_Filter _SYSTEMD_UNIT=google-guest-agent.service
+    Systemd_Filter _SYSTEMD_UNIT=kubelet.service
+    %{endif~}
     Read_From_Tail On
 EOF
       outputs = <<EOF

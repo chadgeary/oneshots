@@ -1,40 +1,53 @@
+resource "helm_release" "this-istio-namespace" {
+  chart     = "${path.module}/namespace"
+  name      = "istio-namespace"
+  namespace = "kube-system"
+  values = [yamlencode({
+    namespace = "istio-system"
+  })]
+}
+
 resource "helm_release" "this-istio-base" {
-  chart            = "base"
-  create_namespace = true
-  name             = "istio-base"
-  namespace        = "istio-system"
-  repository       = "https://istio-release.storage.googleapis.com/charts"
-  version          = "1.23.2"
+  chart      = "base"
+  name       = "istio-base"
+  namespace  = "istio-system"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  version    = "1.23.2"
+  depends_on = [
+    helm_release.this-istio-namespace,
+  ]
 }
 
 resource "helm_release" "this-istio-cni" {
-  chart            = "cni"
-  create_namespace = true
-  name             = "istio-cni"
-  namespace        = "istio-system"
-  repository       = "https://istio-release.storage.googleapis.com/charts"
-  version          = "1.23.2"
+  chart      = "cni"
+  name       = "istio-cni"
+  namespace  = "istio-system"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  version    = "1.23.2"
   values = [yamlencode({
-    cni = {
+    cni = var.install.provider.k8s == "k3s" ? {
       cniBinDir  = "/var/lib/rancher/k3s/data/current/bin/"
       cniConfDir = "/var/lib/rancher/k3s/agent/etc/cni/net.d"
-    }
+    } : {}
     profile = "ambient"
   })]
   depends_on = [
-    helm_release.this-aws-ccm,
     helm_release.this-istio-base,
   ]
 }
 
 resource "helm_release" "this-istio-istiod" {
-  chart            = "istiod"
-  create_namespace = true
-  name             = "istio-istiod"
-  namespace        = "istio-system"
-  repository       = "https://istio-release.storage.googleapis.com/charts"
-  version          = "1.23.2"
+  chart      = "istiod"
+  name       = "istio-istiod"
+  namespace  = "istio-system"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  version    = "1.23.2"
   values = [yamlencode({
+    global = {
+      defaultPodDisruptionBudget = {
+        enabled = false
+      }
+    }
     pilot = {
       autoscaleEnabled = false
       cni = {
@@ -66,12 +79,11 @@ resource "helm_release" "this-istio-istiod" {
 }
 
 resource "helm_release" "this-istio-ztunnel" {
-  chart            = "ztunnel"
-  create_namespace = true
-  name             = "istio-ztunnel"
-  namespace        = "istio-system"
-  repository       = "https://istio-release.storage.googleapis.com/charts"
-  version          = "1.23.2"
+  chart      = "ztunnel"
+  name       = "istio-ztunnel"
+  namespace  = "istio-system"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  version    = "1.23.2"
   values = [yamlencode({
     resources = {
       limits = {
@@ -88,20 +100,16 @@ resource "helm_release" "this-istio-ztunnel" {
 }
 
 resource "helm_release" "this-istio-gateway" {
-  chart            = "gateway"
-  create_namespace = true
-  name             = "istio-gateway"
-  namespace        = "istio-system"
-  repository       = "https://istio-release.storage.googleapis.com/charts"
-  version          = "1.23.2"
+  chart      = "gateway"
+  name       = "istio-gateway"
+  namespace  = "istio-system"
+  repository = "https://istio-release.storage.googleapis.com/charts"
+  version    = "1.23.2"
   values = [yamlencode({
     autoscaling = {
       enabled = false
     }
-    nodeSelector = {
-      "node-role.kubernetes.io/control-plane" = "true"
-    }
-    replicaCount = 1
+    kind = "DaemonSet"
     resources = {
       limits = {
         cpu    = "1"
@@ -131,11 +139,6 @@ resource "helm_release" "this-istio-gateway" {
         },
       ]
     }
-    tolerations = [{
-      effect   = "NoSchedule"
-      key      = "node-role.kubernetes.io/control-plane"
-      operator = "Exists"
-    }]
     })
   ]
   depends_on = [helm_release.this-istio-ztunnel]

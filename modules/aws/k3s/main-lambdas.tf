@@ -27,10 +27,13 @@ resource "aws_iam_role" "this-lambdas" {
   assume_role_policy = data.aws_iam_policy_document.this-assume["lambda"].json
   description        = "${var.aws.default_tags.tags["Name"]}-${each.key}"
   name               = "${var.aws.default_tags.tags["Name"]}-${each.key}"
-  inline_policy {
-    name   = "${var.aws.default_tags.tags["Name"]}-${each.key}"
-    policy = data.aws_iam_policy_document.this-lambdas[each.key].json
-  }
+}
+
+resource "aws_iam_role_policy" "this-lambdas" {
+  for_each = local.lambdas
+  name     = "${var.aws.default_tags.tags["Name"]}-${each.key}"
+  role     = aws_iam_role.this-lambdas[each.key].id
+  policy   = data.aws_iam_policy_document.this-lambdas[each.key].json
 }
 
 resource "aws_lambda_function" "this-lambdas" {

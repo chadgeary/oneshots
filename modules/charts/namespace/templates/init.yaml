@@ -4,5 +4,22 @@ kind: Namespace
 metadata:
   labels:
     kubernetes.io/metadata.name: {{ .Values.namespace }}
-    istio.io/dataplane-mode: {{ index .Values "dataplane-mode" }}
+    {{ if ne .Values.namespace "istio-system" }}istio.io/dataplane-mode: {{ index .Values "dataplane-mode" }}{{ end }}
   name: {{ .Values.namespace }}
+{{ if eq .Values.namespace "istio-system" }}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: critical-pods
+  namespace: istio-system
+spec:
+  hard:
+    pods: 1000
+  scopeSelector:
+    matchExpressions:
+    - operator: In
+      scopeName: PriorityClass
+      values:
+      - system-node-critical
+{{ end }}

@@ -1,10 +1,12 @@
 resource "aws_iam_role" "this-aws-ccm" {
   name               = "${var.aws.default_tags.tags["Name"]}-aws-ccm"
   assume_role_policy = data.aws_iam_policy_document.this-aws-ccm-trust.json
-  inline_policy {
-    name   = "${var.aws.default_tags.tags["Name"]}-aws-ccm"
-    policy = data.aws_iam_policy_document.this-aws-ccm.json
-  }
+}
+
+resource "aws_iam_role_policy" "this-aws-ccm" {
+  name   = "${var.aws.default_tags.tags["Name"]}-aws-ccm"
+  role   = aws_iam_role.this-aws-ccm.id
+  policy = data.aws_iam_policy_document.this-aws-ccm.json
 }
 
 resource "helm_release" "this-aws-ccm" {

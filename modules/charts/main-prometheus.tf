@@ -39,10 +39,10 @@ resource "helm_release" "this-prometheus" {
         storageSpec = {
           volumeClaimTemplate = {
             spec = {
-              storageClassName = "gp3"
+              storageClassName = var.install.provider.storageclass
               resources = {
                 requests = {
-                  storage = "3Gi"
+                  storage = "2Gi"
                 }
               }
             }
@@ -54,6 +54,5 @@ resource "helm_release" "this-prometheus" {
   })]
   depends_on = [
     helm_release.this-prometheus-namespace,
-    helm_release.this-ebs,
   ]
 }

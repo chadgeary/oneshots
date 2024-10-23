@@ -1,17 +1,4 @@
-resource "google_compute_firewall" "this" {
-  name               = "${var.install.name}-gke"
-  direction          = "EGRESS"
-  network            = "projects/${var.install.name}/global/networks/${var.install.name}"
-  priority           = "100"
-  project            = var.install.name
-  destination_ranges = ["0.0.0.0/0"]
-  allow {
-    protocol = "all"
-  }
-}
-
 resource "google_container_cluster" "this" {
-  datapath_provider        = "ADVANCED_DATAPATH"
   deletion_protection      = false
   initial_node_count       = 1
   location                 = var.gcp.google_compute_zones.names[0]
@@ -21,11 +8,11 @@ resource "google_container_cluster" "this" {
   remove_default_node_pool = true
   subnetwork               = "projects/${var.install.name}/regions/${var.install.region}/subnetworks/${var.install.name}-private"
   addons_config {
-    gcp_filestore_csi_driver_config {
-      enabled = true
+    http_load_balancing {
+      disabled = true
     }
-    gcs_fuse_csi_driver_config {
-      enabled = true
+    horizontal_pod_autoscaling {
+      disabled = true
     }
   }
   cluster_autoscaling {
@@ -54,7 +41,9 @@ resource "google_container_cluster" "this" {
     enabled = false
   }
   node_config {
-    machine_type = "e2-standard-2"
+    disk_size_gb = 10
+    disk_type    = "pd-standard"
+    machine_type = "e2-micro"
     tags         = ["${var.install.name}-gke"]
     labels = {
       mesh_id = "proj-${var.install.name}"
@@ -71,9 +60,8 @@ resource "google_container_cluster" "this" {
     workload_pool = "${var.install.name}.svc.id.goog"
   }
   lifecycle {
-    ignore_changes = [node_config]
+    ignore_changes = [node_config, node_pool]
   }
-  depends_on = [google_compute_firewall.this]
 }
 
 resource "google_container_node_pool" "this" {
@@ -84,13 +72,17 @@ resource "google_container_node_pool" "this" {
   project            = var.install.name
   node_locations     = [var.gcp.google_compute_zones.names[0]]
   autoscaling {
-    min_node_count = 0
-    max_node_count = 2
+    min_node_count = var.install.gke.min_node_count
+    max_node_count = var.install.gke.max_node_count
   }
   node_config {
-    disk_size_gb = 10
+    disk_size_gb = var.install.gke.disk_size_gb
     disk_type    = "pd-standard"
-    machine_type = "t2d-standard-1"
+    machine_type = var.install.gke.machine_type
     spot         = true
+    tags         = ["${var.install.name}-gke"]
+  }
+  lifecycle {
+    ignore_changes = [initial_node_count]
   }
 }

@@ -7,9 +7,11 @@
 *.tfvars
 *.tfvars.json
 **/.terraform/*
+backend.tf
 crash.*.log
 crash.log
 **.zip
+gke_gcloud_auth_plugin_cache
 override.tf
 override.tf.json
 terraform.rc

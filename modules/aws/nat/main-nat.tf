@@ -2,10 +2,12 @@ resource "aws_iam_role" "this" {
   assume_role_policy = data.aws_iam_policy_document.this-assume.json
   description        = "${var.aws.default_tags.tags["Name"]}-nat"
   name               = "${var.aws.default_tags.tags["Name"]}-nat"
-  inline_policy {
-    name   = "${var.aws.default_tags.tags["Name"]}-nat"
-    policy = data.aws_iam_policy_document.this.json
-  }
+}
+
+resource "aws_iam_role_policy" "this" {
+  name   = "${var.aws.default_tags.tags["Name"]}-nat"
+  role   = aws_iam_role.this.id
+  policy = data.aws_iam_policy_document.this.json
 }
 
 resource "aws_iam_instance_profile" "this" {
@@ -17,7 +19,7 @@ resource "aws_security_group" "this" {
   description = "${var.aws.default_tags.tags["Name"]}-nat"
   name        = "${var.aws.default_tags.tags["Name"]}-nat"
   tags        = { Name = "${var.aws.default_tags.tags["Name"]}-nat" }
-  vpc_id      = var.vpc.vpc.id
+  vpc_id      = aws_vpc.this.id
 }
 
 resource "aws_vpc_security_group_egress_rule" "this" {
@@ -28,45 +30,39 @@ resource "aws_vpc_security_group_egress_rule" "this" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "this" {
-  for_each          = var.vpc.subnets.private
   security_group_id = aws_security_group.this.id
-
-  cidr_ipv4   = each.value.cidr_block
-  ip_protocol = "-1"
+  cidr_ipv4         = local.private
+  ip_protocol       = "-1"
 }
 
 resource "aws_ec2_subnet_cidr_reservation" "this" {
-  for_each         = var.vpc.subnets.public
-  cidr_block       = "${cidrhost(each.value.cidr_block, 10)}/32"
-  subnet_id        = each.value.id
+  cidr_block       = "${cidrhost(local.public, 10)}/32"
+  subnet_id        = aws_subnet.this-public.id
   reservation_type = "explicit"
 }
 
 resource "aws_network_interface" "this" {
-  for_each          = var.vpc.subnets.public
-  subnet_id         = each.value.id
-  private_ips       = [cidrhost(each.value.cidr_block, 10)]
+  subnet_id         = aws_subnet.this-public.id
+  private_ips       = [cidrhost(local.public, 10)]
   source_dest_check = false
   security_groups   = [aws_security_group.this.id]
   tags = {
-    "Name" = "${var.aws.default_tags.tags["Name"]}-nat-${each.value.availability_zone}"
+    "Name" = "${var.aws.default_tags.tags["Name"]}-nat"
   }
 }
 
 resource "aws_eip" "this" {
-  for_each                  = var.vpc.subnets.public
   domain                    = "vpc"
-  network_interface         = aws_network_interface.this[each.key].id
-  associate_with_private_ip = tolist(aws_network_interface.this[each.key].private_ips)[0]
+  network_interface         = aws_network_interface.this.id
+  associate_with_private_ip = tolist(aws_network_interface.this.private_ips)[0]
   tags = {
-    "Name" = "${var.aws.default_tags.tags["Name"]}-nat-${each.value.availability_zone}"
+    "Name" = "${var.aws.default_tags.tags["Name"]}-nat"
   }
 }
 
 resource "aws_launch_template" "this" {
-  for_each = var.vpc.subnets.public
   image_id = local.ami.id
-  name     = "${var.aws.default_tags.tags["Name"]}-nat-${each.value.availability_zone}"
+  name     = "${var.aws.default_tags.tags["Name"]}-nat"
   block_device_mappings {
     device_name = local.ami.root_device_name
     ebs {
@@ -83,21 +79,20 @@ resource "aws_launch_template" "this" {
     instance_metadata_tags      = "enabled"
   }
   network_interfaces {
-    network_interface_id = aws_network_interface.this[each.key].id
+    network_interface_id = aws_network_interface.this.id
   }
-  user_data = base64encode(templatefile("${path.module}/user_data.sh.tftpl", {}))
+  user_data = base64encode(templatefile("${path.module}/user_data.sh.tftpl", { aws = var.aws, controlplane = cidrhost(local.private, 10), private = local.private }))
 }
 
 resource "aws_autoscaling_group" "this" {
-  for_each                  = var.vpc.subnets.public
-  availability_zones        = [var.vpc.subnets.public[each.key].availability_zone]
+  availability_zones        = [var.aws.availability_zones.names[0]]
   capacity_rebalance        = false
   default_instance_warmup   = 60
   desired_capacity          = 1
   health_check_grace_period = 60
   max_size                  = 1
   min_size                  = 1
-  name                      = "${var.aws.default_tags.tags["Name"]}-nat-${each.value.availability_zone}"
+  name                      = "${var.aws.default_tags.tags["Name"]}-nat"
   mixed_instances_policy {
     instances_distribution {
       on_demand_base_capacity                  = 0
@@ -106,7 +101,7 @@ resource "aws_autoscaling_group" "this" {
     }
     launch_template {
       launch_template_specification {
-        launch_template_id = aws_launch_template.this[each.key].id
+        launch_template_id = aws_launch_template.this.id
         version            = "$Latest"
       }
       dynamic "override" {
@@ -125,8 +120,7 @@ resource "aws_autoscaling_group" "this" {
 }
 
 resource "aws_route" "this" {
-  for_each               = var.vpc.subnets.public
-  route_table_id         = var.vpc.route_tables.private[each.key].id
+  route_table_id         = aws_route_table.this-private.id
   destination_cidr_block = "0.0.0.0/0"
-  network_interface_id   = aws_network_interface.this[each.key].id
+  network_interface_id   = aws_network_interface.this.id
 }
