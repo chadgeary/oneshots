@@ -10,9 +10,10 @@ module "gcp" {
 }
 
 module "nat" {
-  source  = "../../modules/gcp/nat"
-  install = var.install
-  gcp     = module.gcp.this
+  source     = "../../modules/gcp/nat"
+  install    = var.install
+  gcp        = module.gcp.this
+  depends_on = [module.project]
 }
 
 module "gke" {
