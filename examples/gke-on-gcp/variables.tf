@@ -1,10 +1,14 @@
 variable "install" {
   type = object({
     billing = optional(string, "My Billing Account")
-    charts = optional(object({
-      duckdnstoken = string
+    domain = optional(object({
+      domainprovider = string
+      domainname     = string
+      token          = string
       }), {
-      duckdnstoken = ""
+      domainprovider = "duckdns"
+      domainname     = "duckdns.org"
+      token          = ""
     })
     gke = optional(object({
       disk_size_gb   = string

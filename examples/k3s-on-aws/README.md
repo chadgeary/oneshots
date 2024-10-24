@@ -1,4 +1,4 @@
-# oneshots/example/k3s
+# oneshots/example/k3s-on-aws
 
 A budget-friendly k3s cluster in aws with a single `terraform apply`:
 

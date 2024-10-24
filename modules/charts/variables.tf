@@ -1,7 +1,9 @@
 variable "install" {
   type = object({
-    charts = object({
-      duckdnstoken = string
+    domain = object({
+      domainprovider = string
+      domainname     = string
+      token          = string
     })
     name = string
     provider = object({

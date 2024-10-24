@@ -1,8 +1,14 @@
 variable "install" {
   type = object({
     name = string
-    charts = object({
-      duckdnstoken = optional(string, "")
+    domain = optional(object({
+      domainprovider = string
+      domainname     = string
+      token          = string
+      }), {
+      domainprovider = "duckdns"
+      domainname     = "duckdns.org"
+      token          = ""
     })
     k3s = optional(object({
       controlplane = object({

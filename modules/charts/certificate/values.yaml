@@ -1,2 +1,7 @@
-name: "istio-duckdns"
-dnsName: ""
+domain:
+  domainname: "duckdns.org"
+  domainprovider: "duckdns"
+  name: ""
+  token: ""
+
+name: ""

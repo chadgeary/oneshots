@@ -149,11 +149,27 @@ resource "helm_release" "this-istio-certificate" {
   name      = "istio-cert"
   namespace = "istio-system"
   values = [yamlencode({
-    dnsName = "*.${var.install.name}.duckdns.org"
-    name    = var.install.name
+    domain = {
+      domainprovider = var.install.domain.domainprovider
+      domainname     = var.install.domain.domainname
+      token          = var.install.domain.token
+    }
+    name = var.install.name
   })]
   depends_on = [
-    helm_release.this-cert-manager-webhook-duckdns,
+    helm_release.this-cert-manager,
     helm_release.this-istio-istiod,
   ]
+}
+
+resource "helm_release" "this-dnsupdate-duckdns" {
+  for_each  = var.install.domain.domainprovider == "duckdns" ? { "duckdns" : true } : {}
+  chart     = "${path.module}/dnsupdate"
+  name      = "dnsupdate"
+  namespace = "cert-manager"
+  values = [yamlencode({
+    name      = var.install.name
+    public_ip = var.nat.eip.public_ip
+  })]
+  depends_on = [helm_release.this-istio-certificate]
 }

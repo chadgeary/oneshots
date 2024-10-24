@@ -23,7 +23,7 @@ spec:
         - name: TOKEN
           valueFrom:
             secretKeyRef:
-              name: cert-manager-webhook-duckdns
+              name: "{{ .Values.name }}-duckdns"
               key: token
         securityContext:
           allowPrivilegeEscalation: true

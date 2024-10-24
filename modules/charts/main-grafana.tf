@@ -14,10 +14,11 @@ resource "helm_release" "this-grafana-gateway" {
   name      = "grafana-gateway"
   namespace = "grafana"
   values = [yamlencode({
-    host    = "grafana.${var.install.name}.duckdns.org"
+    host    = "grafana.${var.install.name}.${var.install.domain.domainname}"
     name    = var.install.name
     port    = 80
     service = "grafana"
+    target  = var.nat.eip.public_ip
   })]
   depends_on = [helm_release.this-grafana-namespace]
 }

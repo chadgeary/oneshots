@@ -2,6 +2,9 @@ apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: {{ .Values.host | replace "." "-" }}
+  annotations:
+    external-dns.alpha.kubernetes.io/target: {{ .Values.target }}
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
 spec:
   hosts:
   - {{ .Values.host }}
