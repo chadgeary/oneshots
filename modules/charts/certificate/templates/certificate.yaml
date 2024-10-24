@@ -5,8 +5,8 @@ metadata:
   name: {{ .Values.name }}
 spec:
   dnsNames:
-  - {{ .Values.dnsName | quote }}
+  - "*.{{ .Values.name }}.{{ .Values.domain.domainname }}"
   issuerRef:
-    name: cert-manager-webhook-duckdns-production
+    name: "{{ .Values.name }}-{{ .Values.domain.domainprovider }}"
     kind: ClusterIssuer
   secretName: "{{ .Values.name }}-tls"

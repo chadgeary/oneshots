@@ -1,0 +1,103 @@
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "{{ .Values.name }}-{{ .Values.domain.domainprovider }}"
+  labels:
+    app: {{ .Values.name }}
+    chart: {{ .Release.Name }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+type: Opaque
+stringData:
+  token: {{ .Values.domain.token }}
+{{ if eq .Values.domain.domainprovider "duckdns" }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: "{{ .Values.name }}-{{ .Values.domain.domainprovider }}"
+spec:
+  acme:
+    email: cert-manager-webhook@{{ .Values.name }}.cluster.home.arpa
+    preferredChain: ISRG Root X1
+    privateKeySecretRef:
+      name: "cert-manager-webhook-duckdns-webhook-tls"
+    server: https://acme-v02.api.letsencrypt.org/directory
+    solvers:
+    - dns01:
+        webhook:
+          config:
+            apiTokenSecretRef:
+              key: token
+              name: "{{ .Values.name }}-{{ .Values.domain.domainprovider }}"
+          groupName: acme.webhook.duckdns.org
+          solverName: duckdns
+{{ end }}
+{{ if ne .Values.domain.domainprovider "duckdns" }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "{{ .Values.name }}-issuer-tls"
+stringData:
+  tls.key: {{ genPrivateKey "rsa" | b64enc | quote }}
+{{ end }}
+{{ if eq .Values.domain.domainprovider "cloudflare" }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: "{{ .Values.name }}-{{ .Values.domain.domainprovider }}"
+spec:
+  acme:
+    email: cert-manager-webhook@{{ .Values.name }}.cluster.home.arpa
+    preferredChain: ISRG Root X1
+    privateKeySecretRef:
+      name: "{{ .Values.name }}-issuer-tls"
+    server: https://acme-v02.api.letsencrypt.org/directory
+    solvers:
+    - dns01:
+        {{ .Values.domain.domainprovider }}:
+          apiTokenSecretRef:
+            key: token
+            name: "{{ .Values.name }}-{{ .Values.domain.domainprovider }}"
+{{ end }}
+# {{ if eq .Values.domain.domainprovider "cloudDNS" }}
+# ---
+# apiVersion: cert-manager.io/v1
+# kind: ClusterIssuer
+# metadata:
+#   name: "{{ .Values.name }}-{{ .Values.domain.domainprovider }}"
+# spec:
+#   acme:
+#     email: cert-manager-webhook@{{ .Values.name }}.cluster.home.arpa
+#     preferredChain: ISRG Root X1
+#     privateKeySecretRef:
+#       name: "{{ .Values.name }}-{{ .Values.domain.domainprovider }}"
+#     server: https://acme-v02.api.letsencrypt.org/directory
+#     solvers:
+#     - dns01:
+#         {{ .Values.domain.domainprovider }}:
+#           project: {{ .Values.name }}
+#           serviceAccountSecretRef:
+#             name: clouddns-dns01-solver-svc-acct
+#             key: key.json
+# {{ end }}
+# {{ if eq .Values.domain.domainprovider "route53" }}
+# ---
+# apiVersion: cert-manager.io/v1
+# kind: ClusterIssuer
+# metadata:
+#   name: "{{ .Values.name }}-{{ .Values.domain.domainprovider }}"
+# spec:
+#   acme:
+#     email: cert-manager-webhook@{{ .Values.name }}.cluster.home.arpa
+#     preferredChain: ISRG Root X1
+#     privateKeySecretRef:
+#       name: "{{ .Values.name }}-{{ .Values.domain.domainprovider }}"
+#     server: https://acme-v02.api.letsencrypt.org/directory
+#     solvers:
+#     - dns01:
+#         {{ .Values.domain.domainprovider }}: {}
+# {{ end }}
