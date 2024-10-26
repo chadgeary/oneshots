@@ -113,14 +113,15 @@ resource "helm_release" "this-istio-gateway" {
     resources = {
       limits = {
         cpu    = "1"
-        memory = "200Mi"
+        memory = "256Mi"
       }
       requests = {
         cpu    = "10m"
-        memory = "50Mi"
+        memory = "32Mi"
       }
     }
     service = {
+      externalTrafficPolicy = "Local"
       type = "NodePort"
       ports = [
         {
