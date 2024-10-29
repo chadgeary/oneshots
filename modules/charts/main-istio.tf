@@ -23,7 +23,7 @@ resource "helm_release" "this-istio-cni" {
   name       = "istio-cni"
   namespace  = "istio-system"
   repository = "https://istio-release.storage.googleapis.com/charts"
-  version    = "1.23.2"
+  version    = "1.23.3"
   values = [yamlencode({
     cni = var.install.provider.k8s == "k3s" ? {
       cniBinDir  = "/var/lib/rancher/k3s/data/current/bin/"
