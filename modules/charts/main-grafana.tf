@@ -28,7 +28,7 @@ resource "helm_release" "this-grafana" {
   name       = "grafana"
   namespace  = "grafana"
   repository = "https://grafana.github.io/helm-charts"
-  version    = "8.5.8"
+  version    = "8.5.12"
   values = [yamlencode({
     datasources = {
       "datasources.yaml" = {
