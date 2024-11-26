@@ -4,7 +4,7 @@ resource "helm_release" "this-cert-manager" {
   name             = "cert-manager"
   namespace        = "cert-manager"
   repository       = "https://charts.jetstack.io"
-  version          = "v1.16.1"
+  version          = "v1.16.2"
   values = [yamlencode({
     crds = {
       enabled = true
