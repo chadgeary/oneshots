@@ -14,7 +14,7 @@ resource "helm_release" "this-loki" {
   name       = "loki"
   namespace  = "logging"
   repository = "https://grafana.github.io/helm-charts"
-  version    = "6.22.0"
+  version    = "6.23.0"
   values = [yamlencode({
     deploymentMode = "SingleBinary"
     loki = {
