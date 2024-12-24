@@ -12,7 +12,7 @@ resource "helm_release" "this-istio-base" {
   name       = "istio-base"
   namespace  = "istio-system"
   repository = "https://istio-release.storage.googleapis.com/charts"
-  version    = "1.24.1"
+  version    = "1.24.2"
   depends_on = [
     helm_release.this-istio-namespace,
   ]
