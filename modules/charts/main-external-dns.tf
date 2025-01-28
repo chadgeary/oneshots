@@ -5,7 +5,7 @@ resource "helm_release" "this-external-dns" {
   name             = "external-dns"
   namespace        = "external-dns"
   repository       = "https://kubernetes-sigs.github.io/external-dns"
-  version          = "1.15.0"
+  version          = "1.15.1"
   values = [yamlencode({
     provider = {
       name = var.install.domain.domainprovider
