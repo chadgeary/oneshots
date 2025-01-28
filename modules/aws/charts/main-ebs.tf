@@ -15,7 +15,7 @@ resource "helm_release" "this-ebs" {
   name             = "aws-ebs-csi-driver"
   namespace        = "kube-system"
   repository       = "https://kubernetes-sigs.github.io/aws-ebs-csi-driver"
-  version          = "2.38.1"
+  version          = "2.39.1"
   values = [yamlencode({
     controller = {
       env = [
