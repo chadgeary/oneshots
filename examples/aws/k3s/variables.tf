@@ -49,7 +49,8 @@ variable "install" {
       storageclass = "gp3"
     })
     network = optional(object({
-      cidr = string
+      cidr     = string
+      playbook = string
       }), {
       cidr = "10.100.0.0/20"
     })

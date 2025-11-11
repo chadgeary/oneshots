@@ -1,0 +1,304 @@
+---
+- name: AL2023 MC
+  hosts: 127.0.0.1
+  connection: local
+  tasks:
+
+    - name: System Setup
+      become: true
+      become_user: root
+      block:
+
+        - name: Arch
+          ansible.builtin.set_fact:
+            arch: "{{ 'amd64' if ansible_machine == 'x86_64' else 'arm64' }}"
+
+        - name: Templates
+          ansible.builtin.set_fact:
+            utils_by_pack:
+              archive:
+                pterodactylpanel:
+                  extra_opts: []
+                  include: ["panel"]
+                  url: "https://github.com/pterodactyl/panel/releases/latest/download/panel.tar.gz"
+
+        - name: System Packages
+          ansible.builtin.apt:
+            pkg:
+              - apache2
+              - composer
+              - docker-compose-v2
+              - docker.io
+              - php
+              - php-bcmath
+              - php-cli
+              - php-gd
+              - php-mbstring
+              - php-mysql
+              - php-pdo
+              - php-xml
+            state: latest
+          tags:
+            - skip_ansible_lint
+
+        - name: Create pterodactyl user and add to docker group
+          user:
+            name: pterodactyl
+            groups: docker
+            append: yes
+            shell: /sbin/nologin
+
+        - name: Create pterodactyl dir
+          ansible.builtin.file:
+            path: /var/www/pterodactyl
+            state: directory
+            owner: pterodactyl
+            group: pterodactyl
+            mode: 0755
+
+        - name: Pterodactyl Web Permissions Preinstall
+          ansible.builtin.file:
+            group: pterodactyl
+            mode: '0755'
+            owner: pterodactyl
+            path: "{{ item }}"
+            state: directory
+          loop:
+            - /var/www/pterodactyl/storage
+            - /var/www/pterodactyl/bootstrap/cache/
+
+        - name: Install Unarchive
+          ansible.builtin.unarchive:
+            dest: /var/www/pterodactyl
+            group: pterodactyl
+            mode: '0755'
+            owner: pterodactyl
+            remote_src: true
+            src: https://github.com/pterodactyl/panel/releases/latest/download/panel.tar.gz
+            extra_opts:
+              - "-z"
+
+        - name: Start Docker service
+          ansible.builtin.service:
+            name: docker
+            state: started
+            enabled: true
+
+        - name: Ensure docker group exists
+          group:
+            name: docker
+            state: present
+
+        - name: Generate passwords if not present
+          ansible.builtin.set_fact:
+            admin_password: "{{ lookup('password', '/var/www/pterodactyl/.admin_password' + ' length=20 chars=ascii_letters,digits') }}"
+            mysql_password: "{{ lookup('password', '/var/www/pterodactyl/.mysql_password' + ' length=20 chars=ascii_letters,digits') }}"
+
+        - name: Save password file with restricted permissions
+          ansible.builtin.copy:
+            dest: /home/pterodactyl/.passwords
+            content: |
+              ADMIN_PASSWORD={{ admin_password }}
+              MYSQL_PASSWORD={{ mysql_password }}
+            owner: pterodactyl
+            group: pterodactyl
+            mode: '0600'
+
+        - name: Set pterodactyl-extras compose file
+          ansible.builtin.copy:
+            dest: /home/pterodactyl/compose.yaml
+            content: |
+              services:
+                mysql:
+                  image: docker.io/mysql:8
+                  container_name: mysql
+                  restart: unless-stopped
+                  ports: 
+                    - 3306:3306
+                  environment:
+                    MYSQL_ROOT_PASSWORD: "{{ mysql_password }}"
+                    MYSQL_DATABASE: panel
+                    MYSQL_USER: pterodactyl
+                    MYSQL_PASSWORD: "{{ mysql_password }}"
+                  volumes:
+                    - /opt/mysql:/var/lib/mysql
+                redis:
+                  image: redis:8
+                  container_name: redis
+                  ports:
+                    - 6379:6379
+              volumes:
+                mysql_data:
+            owner: pterodactyl
+            group: pterodactyl
+            mode: '0600'
+
+        - name: Compose Up pterodactyl-extras
+          community.docker.docker_compose_v2:
+            project_src: /home/pterodactyl
+
+        - name: Set pterodactyl-extras unit
+          ansible.builtin.copy:
+            dest: /etc/systemd/system/pterodactyl-extras.service
+            content: |
+              [Unit]
+              Description=pterodactyl-extras
+              Requires=docker.service
+              After=docker.service
+
+              [Service]
+              Type=oneshot
+              RemainAfterExit=yes
+              WorkingDirectory=/home/pterodactyl
+              ExecStart=/usr/bin/docker compose up -d --remove-orphans
+              ExecStop=/usr/bin/docker compose down
+
+              [Install]
+              WantedBy=multi-user.target
+            owner: root
+            group: root
+            mode: '0644'
+
+        - name: Enable pterodactyl-extras service
+          ansible.builtin.systemd_service:
+            name: pterodactyl-extras
+            enabled: true
+            state: started
+            daemon_reload: true
+
+        - name: Check for pt env
+          ansible.builtin.stat:
+            path: /var/www/pterodactyl/.env
+          register: pt_env
+
+        - name: Copy pt env example
+          ansible.builtin.copy:
+            src: /var/www/pterodactyl/.env.example
+            dest: /var/www/pterodactyl/.env
+            owner: pterodactyl
+            group: pterodactyl
+            mode: '0644'
+          when: not pt_env.stat.exists
+
+        - name: Ensure DB_PASSWORD line is set
+          ansible.builtin.lineinfile:
+            path: /var/www/pterodactyl/.env
+            regexp: '^DB_PASSWORD='
+            line: 'DB_PASSWORD={{ mysql_password }}'
+
+        - name: Install pterodactyl
+          community.general.composer:
+            command: install
+            working_dir: /var/www/pterodactyl/
+          environment:
+            COMPOSER_ALLOW_SUPERUSER: "1"
+            HOME: /var/www/pterodactyl
+          become: true
+          become_user: pterodactyl
+
+        - name: Check if pt key exists
+          shell: |
+            grep -Eq '^APP_KEY=.+' /var/www/pterodactyl/.env
+          register: appkey_check
+          ignore_errors: true
+
+        - name: Run one-time setup
+          ansible.builtin.shell: |
+            php artisan -n key:generate --force
+            php artisan -n p:environment:setup --author=root@local.internal --url=https://panel.{{ domain }} --telemetry=false --telemetry=false
+            php artisan -n p:environment:database --host=localhost --port=3306 --username=pterodactyl --password={{ mysql_password }} --database=panel 
+            php artisan -n migrate --seed --force
+            php artisan -n p:user:make --username=admin --password={{ admin_password }} --name-first=first --name-last=last --admin=true --email=root@local.internal
+          become: true
+          become_user: pterodactyl
+          args:
+            chdir: /var/www/pterodactyl/
+            executable: /bin/bash
+          when: appkey_check.rc != 0
+
+        - name: Pterodactyl Web Permissions Postinstall
+          ansible.builtin.file:
+            group: www-data
+            owner: www-data
+            path: "{{ item }}"
+            state: directory
+            recurse: yes
+          loop:
+            - /var/www/pterodactyl/storage
+            - /var/www/pterodactyl/bootstrap/cache/
+
+        - name: Enable apache2 modules
+          community.general.apache2_module:
+            state: present
+            name: "{{ item }}"
+          loop:
+            - rewrite
+            - ssl
+
+        - name: Add apache2 site
+          ansible.builtin.copy:
+            content: |
+              <VirtualHost *:80>
+                  ServerName panel.{{ domain }}
+
+                  RewriteEngine On
+                  RewriteCond %{HTTPS} !=on
+                  RewriteRule ^/?(.*) https://%{SERVER_NAME}/$1 [R,L] 
+              </VirtualHost>
+
+              <VirtualHost *:443>
+                  ServerName panel.{{ domain }}
+                  DocumentRoot "/var/www/pterodactyl/public"
+
+                  AllowEncodedSlashes On
+
+                  php_value upload_max_filesize 1000M
+                  php_value post_max_size 1000M
+
+                  <Directory "/var/www/pterodactyl/public">
+                      Require all granted
+                      AllowOverride all
+                  </Directory>
+
+                  SSLEngine on
+                  SSLCertificateFile /etc/ssl/certs/pterodactyl.crt
+                  SSLCertificateKeyFile /etc/ssl/private/pterodactyl.key
+              </VirtualHost> 
+            dest: /etc/apache2/sites-available/001-pterodactyl.conf
+
+        - name: Create apache2 sites-enabled symlink
+          ansible.builtin.file:
+            src: /etc/apache2/sites-available/001-pterodactyl.conf
+            dest: /etc/apache2/sites-enabled/001-pterodactyl.conf
+            state: link
+
+        - name: Remove apache2 sites-enabled default
+          ansible.builtin.file:
+            path: /etc/apache2/sites-enabled/000-default.conf
+            state: absent
+
+        - name: Self TLS Key
+          community.crypto.openssl_privatekey:
+            path: /etc/ssl/private/pterodactyl.key
+            size: 2048
+
+        - name: Self TLS CSR
+          community.crypto.openssl_csr:
+            path: /etc/ssl/certs/pterodactyl.csr
+            privatekey_path: /etc/ssl/private/pterodactyl.key
+            common_name: panel.{{ domain }}
+            organization_name: panel
+            subject_alt_name:
+              - "DNS:panel.{{ domain }}"
+
+        - name: Self TLS Certificate
+          community.crypto.x509_certificate:
+            path: /etc/ssl/certs/pterodactyl.crt
+            privatekey_path: /etc/ssl/private/pterodactyl.key
+            csr_path: /etc/ssl/certs/pterodactyl.csr
+            provider: selfsigned
+
+        - name: Restart apache2 service
+          ansible.builtin.systemd:
+            name: apache2
+            state: restarted

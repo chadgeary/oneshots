@@ -1,15 +1,15 @@
 module "aws" {
-  source = "../../modules/aws/data"
+  source = "../../../modules/aws/data"
 }
 
 module "nat" {
-  source  = "../../modules/aws/nat"
+  source  = "../../../modules/aws/nat"
   aws     = module.aws.this
   install = var.install
 }
 
 module "k3s" {
-  source     = "../../modules/aws/k3s"
+  source     = "../../../modules/aws/k3s"
   aws        = module.aws.this
   install    = var.install
   nat        = module.nat.this
@@ -23,7 +23,7 @@ resource "local_sensitive_file" "this" {
 }
 
 module "aws_charts" {
-  source     = "../../modules/aws/charts"
+  source     = "../../../modules/aws/charts"
   aws        = module.aws.this
   cluster    = module.k3s.this
   install    = var.install
@@ -31,7 +31,7 @@ module "aws_charts" {
 }
 
 module "charts" {
-  source     = "../../modules/charts"
+  source     = "../../../modules/charts"
   install    = var.install
   nat        = module.nat.this
   depends_on = [module.aws_charts]

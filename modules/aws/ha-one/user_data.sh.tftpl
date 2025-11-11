@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+# ansible
+until apt-get update; do sleep 1; done
+until apt-get install -y ansible; do sleep 1; done
+echo ${playbook} | base64 -d | gunzip - > /opt/playbook.yaml
+ansible-playbook --extra-vars "domain=${domain}" /opt/playbook.yaml

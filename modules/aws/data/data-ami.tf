@@ -12,7 +12,7 @@ data "aws_ssm_parameter" "this" {
   name     = each.value
 }
 
-data "aws_ami" "this" {
+data "aws_ami" "this-amazon" {
   for_each    = data.aws_ssm_parameter.this
   most_recent = true
 
@@ -22,4 +22,21 @@ data "aws_ami" "this" {
       nonsensitive(data.aws_ssm_parameter.this[each.key].value)
     ]
   }
+}
+
+data "aws_ami" "this-ubuntu" {
+  for_each    = toset(["24.04"])
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd*/ubuntu-*-${each.key}-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["099720109477"] # canonical
 }

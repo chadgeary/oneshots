@@ -8,6 +8,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5"
+    }
     helm = {
       source  = "hashicorp/helm"
       version = "~> 2.0"
@@ -19,3 +23,14 @@ terraform {
   }
   required_version = ">= 1.0"
 }
+
+provider "aws" {
+  default_tags {
+    tags = {
+      App  = var.install.app
+      Name = var.install.name
+    }
+  }
+}
+
+provider "cloudflare" {}

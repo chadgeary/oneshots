@@ -122,7 +122,7 @@ resource "helm_release" "this-istio-gateway" {
     }
     service = {
       externalTrafficPolicy = "Local"
-      type = "NodePort"
+      type                  = "NodePort"
       ports = [
         {
           name = "status-port"
